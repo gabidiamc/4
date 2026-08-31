@@ -1,0 +1,6 @@
+{
+  "name": "DMPS Family Info",
+  "description": "Automated and verified official information portal for Des Moines Public Schools families",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,337 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FieldInput, type Field } from "./field-input";
+import { TranslationsEditor } from "./translations-editor";
+import { deleteRow, listRows, logAudit, upsertRow, type Row } from "@/lib/admin";
+import { useSchool } from "@/lib/school";
+import { normalizeSchoolId } from "@/lib/school-scope";
+
+export type { Field } from "./field-input";
+
+const SCHOOL_FIELD: Field = {
+  name: "school_id",
+  label: "Escuela / Pertenece a",
+  type: "select",
+  options: [
+    { value: "lincoln", label: "Abraham Lincoln High School" },
+    { value: "east", label: "Des Moines East High School" },
+    { value: "all", label: "Todas las escuelas (Distrito)" },
+  ],
+  help: "Selecciona si este contenido pertenece a una escuela específica o a todo el distrito.",
+};
+
+const TABLES_WITH_SCHOOL_FIELD = new Set([
+  "contacts",
+  "programs",
+  "events",
+  "announcements",
+  "articles",
+  "activities",
+  "faqs",
+  "categories",
+]);
+
+export function CrudManager({
+  table,
+  title,
+  description,
+  fields,
+  columns,
+  defaults,
+  orderBy = "updated_at",
+  ascending = false,
+  renderExtra,
+  translations,
+}: {
+  table: string;
+  title: string;
+  description?: string;
+  fields: Field[];
+  columns: { name: string; label: string }[];
+  defaults: Row;
+  orderBy?: string;
+  ascending?: boolean;
+  renderExtra?: (row: Row) => ReactNode;
+  translations?: { table: string; fkColumn: string; fields: Field[] };
+}) {
+  const queryClient = useQueryClient();
+  const { adminSchoolFilter } = useSchool();
+  const key = ["admin", table, orderBy, ascending, adminSchoolFilter];
+  const [editing, setEditing] = useState<Row | null>(null);
+
+  const rows = useQuery({
+    queryKey: key,
+    queryFn: () => listRows(table, orderBy, ascending, adminSchoolFilter),
+  });
+
+  // Ensure school_id field is present if table supports it
+  const effectiveFields = [...fields];
+  if (TABLES_WITH_SCHOOL_FIELD.has(table) && !effectiveFields.some((f) => f.name === "school_id")) {
+    effectiveFields.push(SCHOOL_FIELD);
+  }
+
+  // Ensure school_id column is present if table supports it
+  const effectiveColumns = [...columns];
+  if (
+    TABLES_WITH_SCHOOL_FIELD.has(table) &&
+    !effectiveColumns.some((c) => c.name === "school_id")
+  ) {
+    effectiveColumns.splice(1, 0, { name: "school_id", label: "Escuela" });
+  }
+
+  // New records default to the school currently selected in the staff panel,
+  // so an edit made while "Lincoln High" is active never touches East High.
+  const defaultSchoolId = normalizeSchoolId(adminSchoolFilter);
+
+  const save = useMutation({
+    mutationFn: async (values: Row) => {
+      const saved = await upsertRow(table, values);
+      await logAudit(values["id"] ? "update" : "create", table, saved["id"] as string);
+      return saved;
+    },
+    onSuccess: () => {
+      toast.success("Guardado");
+      setEditing(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin", table] });
+      void queryClient.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      await deleteRow(table, id);
+      await logAudit("delete", table, id);
+    },
+    onSuccess: () => {
+      toast.success("Eliminado");
+      void queryClient.invalidateQueries({ queryKey: key });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-extrabold">{title}</h1>
+          {description ? <p className="mt-1 text-muted-foreground">{description}</p> : null}
+        </div>
+        <Button
+          className="min-h-11 gap-2 rounded-xl"
+          onClick={() =>
+            setEditing({
+              ...defaults,
+              school_id: defaultSchoolId ?? defaults["school_id"] ?? "all",
+            })
+          }
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          Nuevo
+        </Button>
+      </div>
+
+      {TABLES_WITH_SCHOOL_FIELD.has(table) && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-border bg-card/60 px-4 py-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-foreground">Vista activa:</span>
+            {adminSchoolFilter === "all" ? (
+              <span className="font-semibold text-primary">
+                Todas las escuelas (Distrito completo — resultados combinados)
+              </span>
+            ) : (
+              <span className="font-semibold text-foreground">
+                Exclusivo para{" "}
+                <strong className="text-primary capitalize">{adminSchoolFilter} High</strong> (datos
+                separados por escuela)
+              </span>
+            )}
+          </div>
+          <span className="text-muted-foreground font-medium">
+            Total: {(rows.data ?? []).length} registros
+          </span>
+        </div>
+      )}
+
+      {rows.isLoading ? (
+        <div className="mt-6 space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+          ))}
+        </div>
+      ) : rows.error ? (
+        <p className="mt-6 rounded-xl bg-destructive/10 p-4 text-destructive">
+          {(rows.error as Error).message}
+        </p>
+      ) : (rows.data ?? []).length === 0 ? (
+        <p className="mt-6 text-muted-foreground">
+          Todavía no hay registros para la escuela seleccionada.
+        </p>
+      ) : (
+        <div className="surface-card mt-6 overflow-x-auto">
+          <table className="w-full text-start text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                {effectiveColumns.map((c) => (
+                  <th key={c.name} className="px-4 py-3 text-start font-bold">
+                    {c.label}
+                  </th>
+                ))}
+                <th className="px-4 py-3 text-end font-bold">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(rows.data ?? []).map((row) => (
+                <tr key={String(row["id"])} className="border-b border-border/60 last:border-0">
+                  {effectiveColumns.map((c) => (
+                    <td key={c.name} className="max-w-[16rem] truncate px-4 py-3">
+                      {formatCell(row[c.name])}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      {renderExtra?.(row)}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="min-h-11 min-w-11 rounded-xl"
+                        aria-label="Editar"
+                        onClick={() =>
+                          setEditing({
+                            ...defaults,
+                            school_id: defaultSchoolId ?? defaults["school_id"] ?? "all",
+                            ...row,
+                          })
+                        }
+                      >
+                        <Pencil className="size-4" aria-hidden="true" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="min-h-11 min-w-11 rounded-xl text-destructive"
+                        aria-label="Eliminar"
+                        onClick={() => {
+                          if (window.confirm("¿Eliminar este registro?"))
+                            remove.mutate(String(row["id"]));
+                        }}
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editing?.["id"] ? "Editar" : "Nuevo"}</DialogTitle>
+          </DialogHeader>
+          {editing ? (
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                save.mutate(editing);
+              }}
+            >
+              {effectiveFields.map((f) => (
+                <FieldInput
+                  key={f.name}
+                  field={f}
+                  value={editing[f.name]}
+                  onChange={(v) => setEditing({ ...editing, [f.name]: v })}
+                />
+              ))}
+              <Button
+                type="submit"
+                disabled={save.isPending}
+                className="min-h-12 w-full rounded-xl text-base font-semibold"
+              >
+                {save.isPending ? "Guardando…" : "Guardar"}
+              </Button>
+              {translations ? (
+                editing["id"] ? (
+                  <TranslationsEditor
+                    table={translations.table}
+                    fkColumn={translations.fkColumn}
+                    parentId={String(editing["id"])}
+                    fields={translations.fields}
+                  />
+                ) : (
+                  <p className="rounded-xl bg-secondary p-3 text-sm text-muted-foreground">
+                    Guarda primero el registro para agregar los textos en cada idioma.
+                  </p>
+                )
+              ) : null}
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+const KNOWN_LABELS: Record<string, string> = {
+  super_admin: "Administrador principal",
+  admin: "Administrador",
+  content_admin: "Administrador de contenido",
+  calendar_admin: "Administrador de calendario",
+  editor: "Editor",
+  translator: "Traductor",
+  reviewer: "Revisor",
+  elementary: "Primaria",
+  middle: "Secundaria",
+  high: "Preparatoria (High School)",
+  in_progress: "En proceso",
+  resolved: "Resuelto",
+  dismissed: "Descartado",
+  open: "Pendiente",
+  invited: "Invitado",
+  active: "Activo",
+  revoked: "Revocado",
+  academic: "Académico",
+  sports: "Deportes",
+  arts: "Arte y Música",
+  published: "Publicado",
+  draft: "Borrador",
+  in_review: "En revisión",
+  unknown: "Desconocido",
+  verified: "Verificada",
+  pending: "Pendiente",
+  update: "Actualización de información",
+  bug: "Error o reporte técnico",
+  "sch-lincoln": "Lincoln High",
+  lincoln: "Lincoln High",
+  "sch-east": "East High",
+  east: "East High",
+  "sch-roosevelt": "Roosevelt High",
+  roosevelt: "Roosevelt High",
+  "sch-north": "North High",
+  north: "North High",
+  "sch-hoover": "Hoover High",
+  hoover: "Hoover High",
+  all: "Todas (Distrito)",
+  district: "Todas (Distrito)",
+};
+
+function formatCell(value: unknown) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Sí" : "No";
+  if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
+  if (typeof value === "object") return JSON.stringify(value).slice(0, 60);
+  const str = String(value);
+  if (KNOWN_LABELS[str]) return KNOWN_LABELS[str];
+  return str;
+}
