@@ -60,7 +60,7 @@ interface QualityIssue {
   description: string;
   recommendation: string;
   editUrl: string;
-  extraData?: Record<string, any>;
+  extraData?: Record<string, unknown>;
 }
 
 function AdminCalidadPage() {
@@ -145,12 +145,10 @@ function AdminCalidadPage() {
           }
 
           // Check missing translations
-          const hasEs = (art.article_translations as any[])?.some(
-            (t) => t.language_code === "es" && t.title?.trim(),
-          );
-          const hasEn = (art.article_translations as any[])?.some(
-            (t) => t.language_code === "en" && t.title?.trim(),
-          );
+          const translations = art.article_translations as
+            Array<{ language_code?: string; title?: string }> | undefined;
+          const hasEs = translations?.some((t) => t.language_code === "es" && t.title?.trim());
+          const hasEn = translations?.some((t) => t.language_code === "en" && t.title?.trim());
           if (art.status === "published" && (!hasEs || !hasEn)) {
             const missing = !hasEs && !hasEn ? "ES y EN" : !hasEs ? "Español (ES)" : "Inglés (EN)";
             results.push({
@@ -231,12 +229,10 @@ function AdminCalidadPage() {
 
       if (announcements) {
         announcements.forEach((an) => {
-          const transEs = (an.announcement_translations as any[])?.find(
-            (t) => t.language_code === "es",
-          );
-          const transEn = (an.announcement_translations as any[])?.find(
-            (t) => t.language_code === "en",
-          );
+          const annTranslations = an.announcement_translations as
+            Array<{ language_code?: string; title?: string; message?: string }> | undefined;
+          const transEs = annTranslations?.find((t) => t.language_code === "es");
+          const transEn = annTranslations?.find((t) => t.language_code === "en");
           const title = transEs?.title || transEn?.title || "Aviso oficial";
 
           if (an.status === "published" && (!transEs || !transEn)) {

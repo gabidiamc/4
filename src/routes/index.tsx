@@ -96,7 +96,10 @@ const KEY_DISTRICT_DATES = [
 function Index() {
   const { t, lang } = useI18n();
   const { selectedSchool } = useSchool();
-  const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
+  const categories = useQuery({
+    queryKey: ["categories", selectedSchool.id],
+    queryFn: () => fetchCategories(selectedSchool.id),
+  });
   const announcements = useQuery({
     queryKey: ["announcements", selectedSchool.id],
     queryFn: () => fetchActiveAnnouncements(selectedSchool.id),

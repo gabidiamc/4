@@ -36,6 +36,14 @@ export const Route = createFileRoute("/admin/categorias")({
         { name: "is_visible", label: "Visible en el sitio", type: "checkbox" },
         { name: "is_featured", label: "Destacada en la portada", type: "checkbox" },
       ]}
+      translations={{
+        table: "category_translations",
+        fkColumn: "category_id",
+        fields: [
+          { name: "name", label: "Nombre", required: true },
+          { name: "description", label: "Descripción", type: "textarea" },
+        ],
+      }}
     />
   ),
 });

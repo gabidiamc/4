@@ -75,7 +75,7 @@ function CalendarPage() {
       if (!e.start_date) return;
       const [year, month] = e.start_date.split("-");
       const monthKey = `${year}-${month}`;
-      
+
       const dateObj = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
       const monthLabel = dateObj.toLocaleDateString(isSpanish ? "es-ES" : "en-US", {
         month: "long",
@@ -101,17 +101,41 @@ function CalendarPage() {
     switch (type) {
       case "no_school":
       case "holiday":
-        return <Badge className="bg-amber-600 text-white font-medium">{isSpanish ? "Sin clases / Festivo" : "No School / Holiday"}</Badge>;
+        return (
+          <Badge className="bg-amber-600 text-white font-medium">
+            {isSpanish ? "Sin clases / Festivo" : "No School / Holiday"}
+          </Badge>
+        );
       case "conference":
-        return <Badge className="bg-purple-600 text-white font-medium">{isSpanish ? "Conferencias" : "Conferences"}</Badge>;
+        return (
+          <Badge className="bg-purple-600 text-white font-medium">
+            {isSpanish ? "Conferencias" : "Conferences"}
+          </Badge>
+        );
       case "family":
-        return <Badge className="bg-emerald-600 text-white font-medium">{isSpanish ? "Evento Familiar" : "Family Event"}</Badge>;
+        return (
+          <Badge className="bg-emerald-600 text-white font-medium">
+            {isSpanish ? "Evento Familiar" : "Family Event"}
+          </Badge>
+        );
       case "deadline":
-        return <Badge className="bg-rose-600 text-white font-medium">{isSpanish ? "Fecha Límite" : "Deadline"}</Badge>;
+        return (
+          <Badge className="bg-rose-600 text-white font-medium">
+            {isSpanish ? "Fecha Límite" : "Deadline"}
+          </Badge>
+        );
       case "sports":
-        return <Badge className="bg-blue-600 text-white font-medium">{isSpanish ? "Deportes" : "Sports"}</Badge>;
+        return (
+          <Badge className="bg-blue-600 text-white font-medium">
+            {isSpanish ? "Deportes" : "Sports"}
+          </Badge>
+        );
       default:
-        return <Badge variant="outline" className="font-medium capitalize">{type || "General"}</Badge>;
+        return (
+          <Badge variant="outline" className="font-medium capitalize">
+            {type || "General"}
+          </Badge>
+        );
     }
   };
 
@@ -173,7 +197,9 @@ function CalendarPage() {
               }`}
             >
               <FileText className="size-4" />
-              {isSpanish ? "Calendario Distrital Oficial (PDF / Imagen)" : "Official District Calendar (PDF / Image)"}
+              {isSpanish
+                ? "Calendario Distrital Oficial (PDF / Imagen)"
+                : "Official District Calendar (PDF / Image)"}
             </button>
           </div>
         </div>
@@ -243,7 +269,9 @@ function CalendarPage() {
             <div className="rounded-2xl border border-dashed border-border p-12 text-center">
               <CalendarCheck className="mx-auto size-10 text-muted-foreground/60" />
               <h3 className="mt-3 text-lg font-bold text-foreground">
-                {isSpanish ? "No hay fechas registradas para este filtro" : "No dates found for this filter"}
+                {isSpanish
+                  ? "No hay fechas registradas para este filtro"
+                  : "No dates found for this filter"}
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 {isSpanish
@@ -251,20 +279,25 @@ function CalendarPage() {
                   : "Check the official district PDF calendar or browse community events."}
               </p>
               <div className="mt-5 flex justify-center gap-3">
-                <Button variant="outline" className="rounded-xl" onClick={() => setActiveTab("district_pdf")}>
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => setActiveTab("district_pdf")}
+                >
                   {isSpanish ? "Ver Calendario PDF" : "View PDF Calendar"}
                 </Button>
                 <Button asChild className="rounded-xl">
-                  <Link to="/eventos">
-                    {isSpanish ? "Explorar Eventos" : "Explore Events"}
-                  </Link>
+                  <Link to="/eventos">{isSpanish ? "Explorar Eventos" : "Explore Events"}</Link>
                 </Button>
               </div>
             </div>
           ) : (
             <div className="space-y-8">
               {groupedEvents.map((group) => (
-                <div key={group.monthKey} className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-soft">
+                <div
+                  key={group.monthKey}
+                  className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-soft"
+                >
                   <h2 className="text-xl font-extrabold text-foreground border-b border-border pb-3 flex items-center gap-2">
                     <CalendarDays className="size-5 text-primary" />
                     {group.monthLabel}
@@ -300,7 +333,9 @@ function CalendarPage() {
                               <div className="flex flex-wrap items-center gap-2">
                                 {getEventTypeBadge(evt.event_type)}
                                 {evt.all_day ? (
-                                  <span className="text-xs text-muted-foreground">{isSpanish ? "Todo el día" : "All day"}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {isSpanish ? "Todo el día" : "All day"}
+                                  </span>
                                 ) : evt.start_time ? (
                                   <span className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
                                     <Clock className="size-3" />
@@ -330,7 +365,11 @@ function CalendarPage() {
                           <div className="flex items-center gap-2 self-end sm:self-center">
                             {evt.official_url ? (
                               <Button asChild size="sm" variant="outline" className="rounded-xl">
-                                <a href={evt.official_url} target="_blank" rel="noopener noreferrer">
+                                <a
+                                  href={evt.official_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
                                   <ExternalLink className="mr-1.5 size-3.5" />
                                   {isSpanish ? "Enlace" : "Link"}
                                 </a>
@@ -363,7 +402,11 @@ function CalendarPage() {
               </a>
             </Button>
             <Button asChild variant="ghost" className="min-h-11 rounded-xl">
-              <a href="https://www.dmschools.org/calendar/" target="_blank" rel="noopener noreferrer">
+              <a
+                href="https://www.dmschools.org/calendar/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <ExternalLink className="mr-2 size-4" aria-hidden="true" />
                 {isSpanish ? "Sitio oficial de DMPS" : "Official DMPS Website"}
               </a>

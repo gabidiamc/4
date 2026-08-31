@@ -68,7 +68,7 @@ function ArticlePage() {
   const { slug } = Route.useParams();
   const { t, lang } = useI18n();
   const navigate = useNavigate();
-  const { selectedSchool } = useSchool();
+  const { selectedSchool, setSelectedSchool } = useSchool();
   const schoolId = normalizeSchoolId(selectedSchool.id);
   const [sent, setSent] = useState(false);
 
@@ -76,14 +76,17 @@ function ArticlePage() {
     queryKey: ["article", slug],
     queryFn: () => fetchArticleBySlug(slug),
   });
-  const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
+  const categories = useQuery({
+    queryKey: ["categories", selectedSchool.id],
+    queryFn: () => fetchCategories(selectedSchool.id),
+  });
 
   useEffect(() => {
     if (article.data?.id) void logPageView(article.data.id, lang);
   }, [article.data?.id, lang]);
 
   // La escuela elegida manda: si este artículo pertenece a la otra escuela,
-  // sustituimos la vista por el artículo equivalente de la escuela activa.
+  // sustituimos la vista por el artículo equivalente de la escuela activa si existe.
   useEffect(() => {
     const owner = normalizeSchoolId(article.data?.school_id);
     if (!schoolId || !owner || owner === schoolId) return;
@@ -94,8 +97,39 @@ function ArticlePage() {
   }, [article.data?.school_id, schoolId, slug, navigate]);
 
   const data = article.data;
+  const owner = normalizeSchoolId(data?.school_id);
+  const isForeign = schoolId && owner && owner !== schoolId;
   const loc = data ? localizedArticle(data, lang, schoolId ?? undefined) : null;
   const category = (categories.data ?? []).find((c) => c.id === data?.category_id);
+
+  if (isForeign) {
+    const otherSchoolName =
+      owner === "east" ? "Des Moines East High School" : "Abraham Lincoln High School";
+    return (
+      <PublicShell>
+        <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6">
+          <ShieldCheck className="mx-auto size-12 text-primary" />
+          <h1 className="mt-4 text-3xl font-extrabold tracking-tight">
+            Contenido exclusivo de {otherSchoolName}
+          </h1>
+          <p className="mt-3 text-muted-foreground leading-relaxed">
+            Este artículo pertenece a {otherSchoolName}. La información está separada por escuela
+            para evitar confusiones en horarios, contactos y trámites escolares.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Button className="min-h-11 rounded-xl" onClick={() => setSelectedSchool(owner)}>
+              Cambiar a {otherSchoolName}
+            </Button>
+            <Link to="/topics">
+              <Button variant="outline" className="min-h-11 rounded-xl">
+                Volver a Temas
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </PublicShell>
+    );
+  }
 
   return (
     <PublicShell>

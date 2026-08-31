@@ -51,25 +51,39 @@ export type CategoryRow = {
   display_order: number;
   is_featured: boolean;
   is_visible: boolean;
+  school_id?: string | null;
   category_translations: { language_code: string; name: string; description: string | null }[];
 };
 
-export async function fetchCategories(): Promise<CategoryRow[]> {
-  const { data, error } = await supabase
-    .from("categories")
-    .select(
-      "id, slug, name, description, icon, display_order, is_featured, is_visible, category_translations(language_code, name, description)",
-    )
-    .order("display_order", { ascending: true });
+export async function fetchCategories(schoolId?: string): Promise<CategoryRow[]> {
+  try {
+    const { data, error } = await supabase
+      .from("categories")
+      .select(
+        "id, slug, name, description, icon, display_order, is_featured, is_visible, category_translations(language_code, name, description)",
+      )
+      .order("display_order", { ascending: true });
 
-  if (!error) {
-    writeCache("categories", data ?? []);
-    return (data ?? []) as unknown as CategoryRow[];
+    if (!error && data) {
+      writeCache("categories", data);
+      return filterBySchool(data as unknown as CategoryRow[], schoolId);
+    }
+  } catch (err) {
+    void err;
   }
 
-  // Offline only: last successful read from this device.
+  // Offline / Cache fallback: merge with category_translations if needed
   const cached = readCache<Record<string, unknown>>("categories") ?? [];
-  return cached as unknown as CategoryRow[];
+  const trs = readCache<Record<string, unknown>>("category_translations") ?? [];
+  const merged = cached.map((c) => ({
+    ...c,
+    category_translations: mergeTranslations(
+      c["category_translations"] as Record<string, unknown>[] | undefined,
+      trs.filter((t) => t["category_id"] === c["id"]),
+    ),
+  })) as unknown as CategoryRow[];
+
+  return filterBySchool(merged, schoolId);
 }
 
 export function localizedCategory(cat: CategoryRow, lang: LanguageCode) {
@@ -106,36 +120,81 @@ export async function fetchPublishedArticles(
   categoryId?: string,
   schoolId?: string,
 ): Promise<ArticleRow[]> {
-  let query = supabase
-    .from("articles")
-    .select(ARTICLE_SELECT)
-    .eq("status", "published")
-    .order("published_at", { ascending: false });
-  if (categoryId) query = query.eq("category_id", categoryId);
-  const { data, error } = await query;
+  try {
+    let query = supabase
+      .from("articles")
+      .select(ARTICLE_SELECT)
+      .eq("status", "published")
+      .order("published_at", { ascending: false });
+    if (categoryId) query = query.eq("category_id", categoryId);
+    const { data, error } = await query;
 
-  if (!error) {
-    const rows = (data ?? []) as unknown as ArticleRow[];
-    writeCache("articles", rows);
-    return filterBySchoolStrict(rows, schoolId);
+    if (!error && data) {
+      const rows = (data ?? []) as unknown as ArticleRow[];
+      writeCache("articles", rows);
+      return filterBySchoolStrict(rows, schoolId);
+    }
+  } catch (err) {
+    void err;
   }
 
-  // Offline only: last successful read from this device.
-  const cached = (readCache<ArticleRow>("articles") ?? []).filter(
-    (a) => !categoryId || a.category_id === categoryId,
-  );
-  return filterBySchoolStrict(cached, schoolId);
+  // Offline / Cache fallback: merge with article_translations and categories
+  const cached = readCache<Record<string, unknown>>("articles") ?? [];
+  const trs = readCache<Record<string, unknown>>("article_translations") ?? [];
+  const cats = readCache<Record<string, unknown>>("categories") ?? [];
+
+  const merged = cached
+    .filter((a) => a["status"] === "published" || !a["status"])
+    .filter((a) => !categoryId || a["category_id"] === categoryId || a["slug"] === categoryId)
+    .map((a) => {
+      const catObj = cats.find(
+        (c) => c["id"] === a["category_id"] || c["slug"] === a["category_id"],
+      );
+      return {
+        ...a,
+        categories: catObj ? { slug: catObj["slug"], name: catObj["name"] } : a["categories"],
+        article_translations: mergeTranslations(
+          a["article_translations"] as Record<string, unknown>[] | undefined,
+          trs.filter((t) => t["article_id"] === a["id"]),
+        ),
+      };
+    }) as unknown as ArticleRow[];
+
+  return filterBySchoolStrict(merged, schoolId);
 }
 
 export async function fetchArticleBySlug(slug: string): Promise<ArticleRow | null> {
-  const { data, error } = await supabase
-    .from("articles")
-    .select(ARTICLE_SELECT)
-    .eq("slug", slug)
-    .maybeSingle();
-  if (!error) return (data as unknown as ArticleRow) ?? null;
+  try {
+    const { data, error } = await supabase
+      .from("articles")
+      .select(ARTICLE_SELECT)
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!error && data) return (data as unknown as ArticleRow) ?? null;
+  } catch (err) {
+    void err;
+  }
 
-  return (readCache<ArticleRow>("articles") ?? []).find((a) => a.slug === slug) ?? null;
+  const cached = readCache<Record<string, unknown>>("articles") ?? [];
+  const trs = readCache<Record<string, unknown>>("article_translations") ?? [];
+  const cats = readCache<Record<string, unknown>>("categories") ?? [];
+
+  const found = cached.find((a) => a["slug"] === slug || a["id"] === slug);
+  if (!found) return null;
+
+  const catObj = cats.find(
+    (c) => c["id"] === found["category_id"] || c["slug"] === found["category_id"],
+  );
+  const fullArticle = {
+    ...found,
+    categories: catObj ? { slug: catObj["slug"], name: catObj["name"] } : found["categories"],
+    article_translations: mergeTranslations(
+      found["article_translations"] as Record<string, unknown>[] | undefined,
+      trs.filter((t) => t["article_id"] === found["id"]),
+    ),
+  } as unknown as ArticleRow;
+
+  return fullArticle;
 }
 
 export function adaptSchoolText(text: string, schoolId?: string): string {

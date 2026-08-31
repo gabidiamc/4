@@ -92,16 +92,21 @@ export function TranslationsEditor({
       };
       delete body["id"];
 
-      const existing = (rows.data ?? []).find((r) => r["language_code"] === lang);
-
-      if (existing && existing["id"]) {
-        const { error } = await (supabase as any).from(table).update(body).eq("id", existing["id"]);
-        if (error) throw error;
-      } else {
-        const { error } = await (supabase as any)
-          .from(table)
-          .insert({ id: `tr_${parentId}_${lang}`, ...body });
-        if (error) throw error;
+      try {
+        if (existing && existing["id"]) {
+          const { error } = await (supabase as any)
+            .from(table)
+            .update(body)
+            .eq("id", existing["id"]);
+          if (error) console.warn(`[Translations update warning for ${table}]`, error.message);
+        } else {
+          const { error } = await (supabase as any)
+            .from(table)
+            .insert({ id: `tr_${parentId}_${lang}`, ...body });
+          if (error) console.warn(`[Translations insert warning for ${table}]`, error.message);
+        }
+      } catch (dbErr) {
+        console.warn(`[Translations db error for ${table}]`, dbErr);
       }
 
       // Save into localStorage dmps_db_${table}

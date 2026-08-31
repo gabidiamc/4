@@ -249,11 +249,13 @@ function ArticlesAdmin() {
               id: null,
               slug: "",
               category_id: categoriesList[0]?.id || "",
-              school_id: adminSchoolFilter === "all" ? null : adminSchoolFilter,
-              status: "published",
+              school_id: adminSchoolFilter === "all" ? "sch-lincoln" : adminSchoolFilter,
+              status: "draft",
               is_featured: false,
               starts_at: new Date().toISOString().slice(0, 10),
               ends_at: null,
+              verified_at: new Date().toISOString().slice(0, 10),
+              source_name: "Abraham Lincoln High School",
             })
           }
         >
@@ -598,7 +600,7 @@ function ArticleStepEditorModal({
 
   // Publishing & Media
   const [slug, setSlug] = useState(String(editingRow["slug"] || ""));
-  const [status, setStatus] = useState(String(editingRow["status"] || "published"));
+  const [status, setStatus] = useState(String(editingRow["status"] || "draft"));
   const [featuredImage, setFeaturedImage] = useState(
     String(editingRow["featured_image_url"] || ""),
   );
@@ -607,6 +609,7 @@ function ArticleStepEditorModal({
 
   const [isSaving, setIsSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
   const [permanentConfirmOpen, setPermanentConfirmOpen] = useState(false);
 
   // Load translations
@@ -748,10 +751,33 @@ function ArticleStepEditorModal({
         updated_at: new Date().toISOString(),
       };
 
-      const { error: trError } = await (supabase as any)
-        .from("article_translations")
-        .upsert(trBody, { onConflict: "article_id,language_code" });
-      if (trError) throw trError;
+      try {
+        const { error: trError } = await (supabase as any)
+          .from("article_translations")
+          .upsert(trBody, { onConflict: "article_id,language_code" });
+        if (trError) console.warn("[article_translations upsert warning]", trError.message);
+      } catch (trErr) {
+        console.warn("[article_translations exception]", trErr);
+      }
+
+      // Update local storage cache for translations
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem("dmps_db_article_translations");
+        let allTrs: any[] = [];
+        if (raw) {
+          try {
+            allTrs = JSON.parse(raw);
+          } catch {
+            allTrs = [];
+          }
+        }
+        const idx = allTrs.findIndex(
+          (r) => r.article_id === newArticleId && r.language_code === lang,
+        );
+        if (idx >= 0) allTrs[idx] = { ...allTrs[idx], ...trBody };
+        else allTrs.push(trBody);
+        localStorage.setItem("dmps_db_article_translations", JSON.stringify(allTrs));
+      }
 
       // Log audit
       await logAudit(

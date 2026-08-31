@@ -50,7 +50,7 @@ import { AdminCommandPalette } from "./admin-command-palette";
 interface NavItem {
   to: string;
   label: string;
-  icon: any;
+  icon: React.ElementType;
   exact?: boolean;
   badge?: string;
 }
@@ -110,6 +110,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/admin/usuarios", label: "Usuarios y Permisos", icon: Users },
       { to: "/admin/apariencia", label: "Logotipos y Marca", icon: ImageIcon },
+      { to: "/admin/reinicio", label: "Reinicio de Contenido", icon: ShieldAlert },
     ],
   },
 ];

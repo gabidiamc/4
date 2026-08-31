@@ -24,7 +24,7 @@ export const Route = createFileRoute("/admin/anuncios")({
       ]}
       defaults={{
         level: "info",
-        status: "published",
+        status: "draft",
         starts_at: new Date().toISOString(),
         expires_at: null,
         show_on_home: true,

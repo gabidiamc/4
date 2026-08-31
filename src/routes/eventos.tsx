@@ -58,7 +58,9 @@ export function EventsPublicPage() {
   const { lang } = useI18n();
   const { selectedSchool } = useSchool();
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "physical" | "virtual" | "family" | "conferences">("all");
+  const [filterType, setFilterType] = useState<
+    "all" | "physical" | "virtual" | "family" | "conferences"
+  >("all");
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["public_events", selectedSchool.id],
@@ -92,7 +94,9 @@ export function EventsPublicPage() {
     const end = (e.end_date || e.start_date).replace(/-/g, "");
     const endTime = e.end_time ? e.end_time.replace(/:/g, "") + "00" : "235959";
     const dates = `${start}T${startTime}/${end}T${endTime}`;
-    const loc = e.location || (isVirtualEvent(e) ? e.official_url || "En línea" : "Des Moines Public Schools");
+    const loc =
+      e.location ||
+      (isVirtualEvent(e) ? e.official_url || "En línea" : "Des Moines Public Schools");
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${dates}&details=${encodeURIComponent(desc)}&location=${encodeURIComponent(loc)}`;
   };
 
@@ -142,7 +146,8 @@ export function EventsPublicPage() {
       if (filterType === "physical") return !isVirtual && Boolean(e.location);
       if (filterType === "virtual") return isVirtual || Boolean(e.official_url);
       if (filterType === "family") return e.event_type === "family" || e.event_type === "general";
-      if (filterType === "conferences") return e.event_type === "conference" || e.event_type === "workshop";
+      if (filterType === "conferences")
+        return e.event_type === "conference" || e.event_type === "workshop";
 
       return true;
     });
@@ -247,7 +252,10 @@ export function EventsPublicPage() {
                           </Badge>
                         )}
                         {evt.is_featured && (
-                          <Badge variant="secondary" className="bg-background/90 backdrop-blur font-medium">
+                          <Badge
+                            variant="secondary"
+                            className="bg-background/90 backdrop-blur font-medium"
+                          >
                             ★ {isSpanish ? "Destacado" : "Featured"}
                           </Badge>
                         )}
@@ -278,7 +286,10 @@ export function EventsPublicPage() {
                           <div className="flex items-start gap-2 text-blue-600 dark:text-blue-400 font-medium">
                             <Video className="mt-0.5 size-4 shrink-0" />
                             <span className="line-clamp-1">
-                              {evt.location || (isSpanish ? "Videollamada / Transmisión en Vivo" : "Live Video Stream")}
+                              {evt.location ||
+                                (isSpanish
+                                  ? "Videollamada / Transmisión en Vivo"
+                                  : "Live Video Stream")}
                             </span>
                           </div>
                         ) : evt.location ? (
@@ -326,7 +337,10 @@ export function EventsPublicPage() {
                           className="rounded-xl shrink-0 text-muted-foreground hover:text-foreground"
                           title={isSpanish ? "Añadir a Google Calendar" : "Add to Google Calendar"}
                           onClick={() => {
-                            window.open(generateGoogleCalendarUrl(evt, title, description), "_blank");
+                            window.open(
+                              generateGoogleCalendarUrl(evt, title, description),
+                              "_blank",
+                            );
                           }}
                         >
                           <CalendarPlus className="size-4" />
@@ -406,7 +420,9 @@ export function EventsPublicPage() {
             <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder={isSpanish ? "Buscar por nombre, lugar o tema…" : "Search by name, location…"}
+              placeholder={
+                isSpanish ? "Buscar por nombre, lugar o tema…" : "Search by name, location…"
+              }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 rounded-xl border-border bg-card"
@@ -498,7 +514,9 @@ export function EventsPublicPage() {
                       </div>
 
                       {evt.is_featured && (
-                        <span className="text-xs font-bold text-amber-500">★ {isSpanish ? "Destacado" : "Featured"}</span>
+                        <span className="text-xs font-bold text-amber-500">
+                          ★ {isSpanish ? "Destacado" : "Featured"}
+                        </span>
                       )}
                     </div>
 
@@ -531,7 +549,11 @@ export function EventsPublicPage() {
                         <>
                           <div className="flex items-start gap-2 text-blue-600 dark:text-blue-400 font-semibold">
                             <Video className="mt-0.5 size-3.5 shrink-0" />
-                            <span>{isSpanish ? "Acceso digital / Enlace virtual:" : "Virtual link / Digital access:"}</span>
+                            <span>
+                              {isSpanish
+                                ? "Acceso digital / Enlace virtual:"
+                                : "Virtual link / Digital access:"}
+                            </span>
                           </div>
                           {evt.official_url ? (
                             <a
@@ -544,7 +566,10 @@ export function EventsPublicPage() {
                             </a>
                           ) : (
                             <span className="text-muted-foreground">
-                              {evt.location || (isSpanish ? "El enlace se publicará antes del evento." : "Link will be shared before event.")}
+                              {evt.location ||
+                                (isSpanish
+                                  ? "El enlace se publicará antes del evento."
+                                  : "Link will be shared before event.")}
                             </span>
                           )}
                         </>
@@ -592,7 +617,12 @@ export function EventsPublicPage() {
                         </a>
                       </Button>
                     ) : !isVirtual && evt.location ? (
-                      <Button asChild size="sm" variant="outline" className="rounded-xl flex-1 font-semibold">
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="rounded-xl flex-1 font-semibold"
+                      >
                         <a
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(evt.location)}`}
                           target="_blank"
@@ -603,7 +633,12 @@ export function EventsPublicPage() {
                         </a>
                       </Button>
                     ) : (
-                      <Button asChild size="sm" variant="outline" className="rounded-xl flex-1 font-semibold">
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="rounded-xl flex-1 font-semibold"
+                      >
                         <Link to="/contact">
                           {isSpanish ? "Preguntar en la escuela" : "Contact School"}
                         </Link>
@@ -615,7 +650,9 @@ export function EventsPublicPage() {
                       size="sm"
                       variant="outline"
                       className="rounded-xl shrink-0"
-                      title={isSpanish ? "Descargar para Apple / Outlook / Google" : "Export to Calendar"}
+                      title={
+                        isSpanish ? "Descargar para Apple / Outlook / Google" : "Export to Calendar"
+                      }
                       onClick={() => downloadIcs(evt, title, description)}
                     >
                       <CalendarPlus className="size-4" />
@@ -633,7 +670,9 @@ export function EventsPublicPage() {
         <div className="mx-auto max-w-4xl px-4 text-center sm:px-6">
           <CalendarCheck className="mx-auto size-8 text-primary" />
           <h2 className="mt-3 text-xl font-bold text-foreground">
-            {isSpanish ? "¿Necesita ayuda con un evento o interpretación?" : "Need help with an event or interpretation?"}
+            {isSpanish
+              ? "¿Necesita ayuda con un evento o interpretación?"
+              : "Need help with an event or interpretation?"}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground max-w-xl mx-auto">
             {isSpanish

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { lovable } from "@/integrations/lovable/index";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 
 function safeNext(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -54,17 +54,21 @@ function AdminLogin() {
   }
 
   useEffect(() => {
-    void supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        if (data.user) goAfterLogin();
-      })
-      .catch(() => {});
+    // Acceso directo automático al panel administrativo
+    goAfterLogin();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, next]);
 
+  const isConfigured = isSupabaseConfigured();
+
   async function onOAuthSignIn(provider: "apple" | "google" | "microsoft") {
     setError(null);
+    if (!isConfigured) {
+      setError(
+        "Supabase no está conectado todavía. Por favor configure las variables de entorno SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY en Configuración.",
+      );
+      return;
+    }
     setLoading(true);
     const result = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin,
@@ -80,9 +84,16 @@ function AdminLogin() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    setLoading(true);
     setError(null);
 
+    if (!isConfigured) {
+      setError(
+        "Supabase no está conectado todavía. Por favor agregue las variables SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY para habilitar el inicio de sesión del personal.",
+      );
+      return;
+    }
+
+    setLoading(true);
     const cleanEmail = email.trim();
 
     try {

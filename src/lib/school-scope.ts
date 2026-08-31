@@ -64,7 +64,8 @@ export function belongsToSchool(
   const target = normalizeSchoolId(schoolId);
   if (!target) return true; // "Todas (Distrito)" -> shows everything combined!
   const owner = rowSchoolId(row);
-  return owner === target; // Separate strictly by school!
+  if (!owner) return true; // District-wide / shared items visible to both
+  return owner === target; // School-specific items strictly isolated to that school!
 }
 
 /** Filters a list of records down to those visible for the given school. */

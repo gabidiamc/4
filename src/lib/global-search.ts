@@ -504,7 +504,8 @@ export function globalSearch(query: string, sources: SearchSources): GlobalSearc
       lifecycleStatus === "out_of_season" ||
       Boolean(
         itemLifecycle &&
-        (itemLifecycle.status === "archived" || (itemLifecycle as any).is_cancelled),
+        (itemLifecycle.status === "archived" ||
+          (itemLifecycle as { is_cancelled?: boolean }).is_cancelled),
       );
 
     const finalBadgeLabel =
@@ -576,7 +577,7 @@ export function globalSearch(query: string, sources: SearchSources): GlobalSearc
         status: article.status,
         updated_at: article.updated_at,
         published_at: article.published_at,
-        review_date: (article as any).review_date,
+        review_date: (article as { review_date?: string }).review_date,
       },
       false,
       false,

@@ -12,12 +12,7 @@ export type BoundStatus =
   | "Información pendiente de actualización";
 
 export type BoundEventStatus =
-  | "Programado"
-  | "En curso"
-  | "Finalizado"
-  | "Cancelado"
-  | "Pospuesto"
-  | "Reprogramado";
+  "Programado" | "En curso" | "Finalizado" | "Cancelado" | "Pospuesto" | "Reprogramado";
 
 export interface BoundActivity {
   id: string;
@@ -140,7 +135,8 @@ export const INITIAL_REGISTRATION_SUPPORT: RegistrationSupportPerson[] = [];
 export const INITIAL_REGISTRATION_SETTINGS: RegistrationSettings = {
   is_enabled: true,
   title: "¿Quieres registrarte en un deporte o actividad?",
-  message: "Solicita ayuda al personal escolar para completar el proceso de registro de deportes y actividades.",
+  message:
+    "Solicita ayuda al personal escolar para completar el proceso de registro de deportes y actividades.",
   primary_button_label: "Registrarse",
   secondary_button_label: "Necesito ayuda",
   registration_url: LINCOLN_BOUND_REGISTRATION_URL,

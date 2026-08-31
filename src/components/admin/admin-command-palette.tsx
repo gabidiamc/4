@@ -33,7 +33,7 @@ export interface SearchResultItem {
   subtitle?: string;
   category: string;
   categoryLabel: string;
-  icon: any;
+  icon: React.ElementType;
   href: string;
   schoolId?: string | null;
   status?: string;

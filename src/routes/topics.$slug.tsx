@@ -46,8 +46,11 @@ export const Route = createFileRoute("/topics/$slug")({
 function TopicPage() {
   const { slug } = Route.useParams();
   const { t, lang } = useI18n();
-  const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
   const { selectedSchool } = useSchool();
+  const categories = useQuery({
+    queryKey: ["categories", selectedSchool.id],
+    queryFn: () => fetchCategories(selectedSchool.id),
+  });
   const articles = useQuery({
     queryKey: ["articles", selectedSchool.id],
     queryFn: () => fetchPublishedArticles(undefined, selectedSchool.id),

@@ -72,7 +72,10 @@ function SearchPage() {
     queryKey: ["articles", schoolId],
     queryFn: () => fetchPublishedArticles(undefined, schoolId),
   });
-  const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
+  const categories = useQuery({
+    queryKey: ["categories", schoolId],
+    queryFn: () => fetchCategories(schoolId),
+  });
   const events = useQuery({ queryKey: ["events", schoolId], queryFn: () => fetchEvents(schoolId) });
   const programs = useQuery({
     queryKey: ["programs", schoolId],
@@ -308,17 +311,26 @@ function SearchPage() {
             ) : null}
 
             {visible.length === 0 ? (
-              <div className="surface-card mt-6 p-6">
-                <h2 className="text-lg font-bold sm:text-xl">{t("search.none")}</h2>
-                <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                  {t("search.noneHint")}
+              <div className="surface-card mt-6 p-6 sm:p-8 rounded-3xl border border-border text-center max-w-xl mx-auto space-y-3">
+                <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary">
+                  <Search className="size-6" />
+                </div>
+                <h2 className="text-lg font-bold sm:text-xl text-foreground">
+                  {q.trim() ? t("search.none") : "Todavía no hay información pública disponible"}
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {q.trim()
+                    ? "Todavía no hay información pública disponible. Estamos agregando contenido nuevo y verificado."
+                    : "Estamos preparando información nueva y verificada para las familias. Vuelve pronto para consultar artículos, eventos y recursos actualizados."}
                 </p>
-                <Link
-                  to="/topics"
-                  className="mt-4 inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-4"
-                >
-                  {t("categories.title")}
-                </Link>
+                <div className="pt-2">
+                  <Link
+                    to="/"
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-soft"
+                  >
+                    Volver al inicio
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="mt-8 space-y-10">

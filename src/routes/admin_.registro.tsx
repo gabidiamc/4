@@ -6,7 +6,7 @@ import { SiteLogo } from "@/components/site-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin_/registro")({
   ssr: false,
@@ -34,20 +34,23 @@ function AdminSignUp() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const isConfigured = isSupabaseConfigured();
 
   useEffect(() => {
-    void supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        if (data.user) void navigate({ to: "/admin", replace: true });
-      })
-      .catch(() => {});
+    void navigate({ to: "/admin", replace: true });
   }, [navigate]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setInfo(null);
+
+    if (!isConfigured) {
+      setError(
+        "Supabase no está conectado todavía. Por favor configure las variables de entorno SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY en Configuración.",
+      );
+      return;
+    }
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName.trim();
