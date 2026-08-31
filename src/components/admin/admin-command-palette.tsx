@@ -297,6 +297,15 @@ export function AdminCommandPalette({
         href: "/admin/calidad",
       },
       {
+        id: "qa-menu-nav",
+        title: "Editar Menú y Navegación Pública",
+        subtitle: "Personalizar títulos, orden, traducciones y visibilidad del menú público",
+        category: "actions",
+        categoryLabel: "Acción Rápida",
+        icon: Layers,
+        href: "/admin/menu",
+      },
+      {
         id: "qa-requests",
         title: "Solicitudes y reportes de familias",
         subtitle: "Atender observaciones enviadas desde el sitio público",

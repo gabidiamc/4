@@ -49,7 +49,7 @@ export async function listRows(
   name: string,
   orderBy = "updated_at",
   ascending = false,
-  schoolFilter?: "lincoln" | "east" | "all" | string | null,
+  schoolFilter?: string | null,
 ): Promise<Row[]> {
   let rows: Row[] = [];
 
@@ -65,6 +65,15 @@ export async function listRows(
     rows = readCache<Row>(name) ?? [];
   }
 
+  // If table does not have school_id (e.g. schools, audit_logs, site_settings), return all
+  if (
+    ["schools", "audit_logs", "user_roles", "appearance_settings", "admin_invitations"].includes(
+      name,
+    )
+  ) {
+    return rows;
+  }
+
   return filterBySchool(rows, schoolFilter);
 }
 
@@ -74,14 +83,18 @@ export async function upsertRow(name: string, values: Row): Promise<Row> {
   delete payload["created_at"];
   delete payload["updated_at"];
 
-  // Store a canonical school id ("lincoln" | "east"), or null for district-wide content.
+  // Store a canonical school id ("lincoln" or current school id). Never null.
   if ("school_id" in payload) {
     payload["school_id"] = schoolIdForStorage(payload["school_id"] as string | null);
   }
   delete payload["id"];
 
   // Auto-generate slug if missing on tables with required slug
-  if (["articles", "categories", "events", "topics", "programs", "schools"].includes(name)) {
+  if (
+    ["articles", "categories", "events", "topics", "programs", "schools", "resources"].includes(
+      name,
+    )
+  ) {
     if (!payload["slug"] || typeof payload["slug"] !== "string" || !payload["slug"].trim()) {
       const sourceStr = String(payload["title"] || payload["name"] || `item-${Date.now()}`);
       payload["slug"] =
@@ -101,6 +114,15 @@ export async function upsertRow(name: string, values: Row): Promise<Row> {
     if (payload["status"] === "published" && !payload["published_at"]) {
       payload["published_at"] = new Date().toISOString();
     }
+  }
+
+  // Auto-ensure required fields for resources
+  if (name === "resources") {
+    if (!payload["status"]) payload["status"] = "published";
+    if (!payload["resource_type"]) payload["resource_type"] = "link";
+    if (payload["is_visible"] === undefined) payload["is_visible"] = true;
+    if (payload["display_order"] === undefined) payload["display_order"] = 0;
+    if (!payload["icon"]) payload["icon"] = "ExternalLink";
   }
 
   // Auto-ensure required fields for events

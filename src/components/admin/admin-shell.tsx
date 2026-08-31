@@ -63,8 +63,31 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
+    id: "contenido_publico",
+    title: "Secciones del Menú Público (Editar Contenido)",
+    items: [
+      { to: "/admin/anuncios", label: "Inicio y Avisos", icon: Megaphone, badge: "Portada" },
+      { to: "/admin/calendario", label: "Calendario Escolar", icon: CalendarDays },
+      { to: "/admin/articulos", label: "Artículos y Guías", icon: BookOpen },
+      { to: "/admin/categorias", label: "Categorías de Temas", icon: FolderTree },
+      { to: "/admin/programas", label: "Programas Académicos", icon: GraduationCap },
+      {
+        to: "/admin/programas-estudiantes",
+        label: "Programas Estudiantes",
+        icon: Users,
+      },
+      { to: "/admin/actividades", label: "Deportes y Actividades", icon: Trophy },
+      { to: "/admin/dart/configuracion", label: "Transporte DART", icon: Bus },
+      { to: "/admin/recursos", label: "Recursos y Enlaces", icon: Globe },
+      { to: "/admin/contactos", label: "Directorio y Contacto", icon: Phone },
+      { to: "/admin/servicios", label: "Servicios y Portales", icon: Link2 },
+      { to: "/admin/escuelas", label: "Escuelas y Sedes", icon: School },
+      { to: "/admin/menu", label: "Estructura del Menú", icon: Menu, badge: "Editor" },
+    ],
+  },
+  {
     id: "resumen",
-    title: "Resumen",
+    title: "Resumen y Métricas",
     items: [
       { to: "/admin", label: "Panel Principal", icon: LayoutDashboard, exact: true },
       { to: "/admin?view=pending", label: "Tareas Pendientes", icon: ListTodo },
@@ -73,31 +96,10 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    id: "contenido",
-    title: "Contenido",
-    items: [
-      { to: "/admin/articulos", label: "Artículos y Recursos", icon: BookOpen },
-      { to: "/admin/anuncios", label: "Avisos", icon: Megaphone },
-      { to: "/admin/calendario", label: "Calendario y Eventos", icon: CalendarDays },
-      { to: "/admin/actividades", label: "Deportes y Actividades", icon: Trophy },
-      { to: "/admin/categorias", label: "Categorías", icon: FolderTree },
-      { to: "/admin/escuelas", label: "Escuelas", icon: School },
-      { to: "/admin/programas", label: "Programas", icon: GraduationCap },
-      {
-        to: "/admin/programas-estudiantes",
-        label: "Programas Estudiantes",
-        icon: Users,
-      },
-      { to: "/admin/dart/configuracion", label: "Rutas (DART)", icon: Bus },
-      { to: "/admin/servicios", label: "Servicios y Portales", icon: Globe },
-      { to: "/admin/contactos", label: "Directorio de Contactos", icon: Phone },
-      { to: "/admin/emergentes", label: "Anuncios Flotantes", icon: Bell },
-    ],
-  },
-  {
     id: "calidad",
-    title: "Calidad",
+    title: "Idiomas y Calidad",
     items: [
+      { to: "/admin/traducciones", label: "Traducciones (ES, EN, KSW)", icon: FileCheck2 },
       { to: "/admin/vigencia", label: "Fechas y Vigencia", icon: CalendarClock },
       { to: "/admin/calidad", label: "Bandeja de Calidad", icon: FileCheck2 },
       { to: "/admin/solicitudes", label: "Solicitudes de Familias", icon: Inbox },
@@ -106,10 +108,11 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "sistema",
-    title: "Sistema",
+    title: "Sistema y Marca",
     items: [
       { to: "/admin/usuarios", label: "Usuarios y Permisos", icon: Users },
       { to: "/admin/apariencia", label: "Logotipos y Marca", icon: ImageIcon },
+      { to: "/admin/emergentes", label: "Anuncios Flotantes", icon: Bell },
       { to: "/admin/reinicio", label: "Reinicio de Contenido", icon: ShieldAlert },
     ],
   },
@@ -311,43 +314,16 @@ export function AdminShell({
             </button>
 
             {/* School Scope Switcher */}
-            <div className="flex items-center gap-1 rounded-xl border border-border bg-background p-1 text-xs font-semibold shadow-2xs">
-              <span className="px-2 text-muted-foreground hidden md:inline text-[11px]">
-                Escuela:
-              </span>
-              <button
-                type="button"
-                onClick={() => setAdminSchoolFilter("lincoln")}
-                className={`rounded-lg px-2.5 py-1.5 transition-colors cursor-pointer ${
-                  adminSchoolFilter === "lincoln"
-                    ? "bg-blue-600 text-white font-bold shadow-2xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Lincoln
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdminSchoolFilter("east")}
-                className={`rounded-lg px-2.5 py-1.5 transition-colors cursor-pointer ${
-                  adminSchoolFilter === "east"
-                    ? "bg-rose-600 text-white font-bold shadow-2xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                East
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdminSchoolFilter("all")}
-                className={`rounded-lg px-3 py-1.5 transition-colors cursor-pointer ${
-                  adminSchoolFilter === "all"
-                    ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                    : "text-muted-foreground hover:text-foreground font-medium"
-                }`}
-              >
-                Todas (Distrito)
-              </button>
+            <div className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-semibold shadow-2xs">
+              <School className="size-4 text-primary" />
+              <div className="flex flex-col text-start">
+                <span className="text-[10px] text-muted-foreground uppercase font-black tracking-wider leading-none">
+                  Administrando Escuela:
+                </span>
+                <span className="text-xs font-bold text-foreground leading-tight">
+                  Abraham Lincoln High School
+                </span>
+              </div>
             </div>
           </div>
 

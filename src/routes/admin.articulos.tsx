@@ -885,19 +885,26 @@ function ArticleStepEditorModal({
               </div>
 
               {/* School Scope */}
-              <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-2">
-                <label className="text-sm font-bold text-foreground block">
-                  Escuela a la que pertenece
-                </label>
+              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-bold text-foreground block">
+                    Escuela obligatoria (school_id)
+                  </label>
+                  <span className="font-mono text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">
+                    ID: {schoolId || "lincoln"}
+                  </span>
+                </div>
                 <select
                   value={schoolId}
                   onChange={(e) => setSchoolId(e.target.value)}
                   className="w-full min-h-11 rounded-xl border border-input bg-background px-3 py-2 text-sm font-semibold text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                 >
-                  <option value="all">Todas las escuelas (Distrito completo)</option>
-                  <option value="sch-lincoln">Abraham Lincoln High School</option>
-                  <option value="sch-east">Des Moines East High School</option>
+                  <option value="lincoln">Abraham Lincoln High School (Lincoln)</option>
                 </select>
+                <p className="text-xs text-muted-foreground">
+                  🏫 Administrando: <strong>Abraham Lincoln High School</strong>. Cada artículo está
+                  estrictamente aislado a su escuela.
+                </p>
               </div>
 
               {/* Category */}

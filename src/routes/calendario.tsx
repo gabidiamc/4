@@ -29,6 +29,7 @@ import { useI18n } from "@/lib/i18n";
 import { useSchool } from "@/lib/school";
 import { fetchEvents, localizedEvent, type EventRow } from "@/lib/content";
 import { formatDesMoinesDate } from "@/lib/content-lifecycle";
+import { getCalendarSettings } from "@/lib/calendar-config";
 
 export const Route = createFileRoute("/calendario")({
   head: () => ({
@@ -52,8 +53,18 @@ export const Route = createFileRoute("/calendario")({
 function CalendarPage() {
   const { t, lang } = useI18n();
   const { selectedSchool } = useSchool();
-  const [activeTab, setActiveTab] = useState<"agenda" | "district_pdf">("agenda");
+  const [activeTab, setActiveTab] = useState<"calendar_image" | "agenda">("calendar_image");
   const [selectedEventType, setSelectedEventType] = useState<string>("all");
+  const [customSettings, setCustomSettings] = useState(() =>
+    getCalendarSettings(selectedSchool.id),
+  );
+
+  useEffect(() => {
+    setCustomSettings(getCalendarSettings(selectedSchool.id));
+    const handleUpdate = () => setCustomSettings(getCalendarSettings(selectedSchool.id));
+    window.addEventListener("dmps-calendar-updated", handleUpdate);
+    return () => window.removeEventListener("dmps-calendar-updated", handleUpdate);
+  }, [selectedSchool.id]);
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["public_calendar_events", selectedSchool.id],
@@ -61,6 +72,10 @@ function CalendarPage() {
   });
 
   const isSpanish = lang === "es";
+  const isKaren = lang === "kar";
+
+  const effectiveImageUrl = customSettings.imageUrl || calendarImage.url;
+  const effectivePdfUrl = customSettings.pdfUrl || calendarPdf.url;
 
   // Group events by Month (e.g. "Agosto 2026", "Septiembre 2026")
   const groupedEvents = useMemo(() => {
@@ -173,6 +188,21 @@ function CalendarPage() {
           {/* Navigation View Tabs */}
           <div className="mt-8 flex border-b border-border/80 gap-6">
             <button
+              onClick={() => setActiveTab("calendar_image")}
+              className={`flex items-center gap-2 pb-3 text-sm sm:text-base font-bold transition border-b-2 -mb-px ${
+                activeTab === "calendar_image"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ImageIcon className="size-4" />
+              {isSpanish
+                ? "Calendario Oficial (Imagen y PDF)"
+                : isKaren
+                  ? "လံာ်မၤလိာ်ကလံစတၢ်ရဲၣ်တဲာ် (လံာ်ဂီၤ)"
+                  : "Official Calendar (Image & PDF)"}
+            </button>
+            <button
               onClick={() => setActiveTab("agenda")}
               className={`flex items-center gap-2 pb-3 text-sm sm:text-base font-bold transition border-b-2 -mb-px ${
                 activeTab === "agenda"
@@ -181,32 +211,99 @@ function CalendarPage() {
               }`}
             >
               <CalendarIcon className="size-4" />
-              {isSpanish ? "Agenda de Fechas y Eventos" : "Key Dates & Schedule"}
+              {isSpanish
+                ? "Agenda de Fechas y Eventos"
+                : isKaren
+                  ? "မုၢ်နံၤမုၢ်သီတၢ်မၤအလံာ်"
+                  : "Key Dates & Events"}
               {events.length > 0 && (
                 <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary font-bold">
                   {events.length}
                 </span>
               )}
             </button>
-            <button
-              onClick={() => setActiveTab("district_pdf")}
-              className={`flex items-center gap-2 pb-3 text-sm sm:text-base font-bold transition border-b-2 -mb-px ${
-                activeTab === "district_pdf"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <FileText className="size-4" />
-              {isSpanish
-                ? "Calendario Distrital Oficial (PDF / Imagen)"
-                : "Official District Calendar (PDF / Image)"}
-            </button>
           </div>
         </div>
       </section>
 
       {/* Main Content Area */}
-      {activeTab === "agenda" ? (
+      {activeTab === "calendar_image" ? (
+        /* Image / PDF Calendar Section */
+        <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-foreground sm:text-2xl">
+                {customSettings.title ||
+                  (isSpanish ? "Calendario Escolar 2026-2027" : "2026-2027 School Calendar")}
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                {customSettings.subtitle ||
+                  (isSpanish
+                    ? "Días de clases, conferencias, festivos y eventos oficiales."
+                    : "School days, conferences, holidays and key dates.")}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {effectivePdfUrl && (
+                <Button asChild className="min-h-11 rounded-xl shadow-soft">
+                  <a href={effectivePdfUrl} target="_blank" rel="noopener noreferrer" download>
+                    <Download className="mr-2 size-4" aria-hidden="true" />
+                    {isSpanish ? "Descargar PDF oficial" : "Download PDF"}
+                  </a>
+                </Button>
+              )}
+              <Button asChild variant="outline" className="min-h-11 rounded-xl">
+                <a href={effectiveImageUrl} target="_blank" rel="noopener noreferrer">
+                  <Maximize2 className="mr-2 size-4" aria-hidden="true" />
+                  {isSpanish ? "Ver en pantalla completa" : "View Full Size"}
+                </a>
+              </Button>
+              <Button asChild variant="ghost" className="min-h-11 rounded-xl">
+                <a
+                  href="https://www.dmschools.org/calendar/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="mr-2 size-4" aria-hidden="true" />
+                  {isSpanish ? "Sitio DMPS" : "DMPS Official"}
+                </a>
+              </Button>
+            </div>
+          </div>
+
+          <div className="surface-card overflow-hidden p-2 sm:p-4 rounded-2xl border border-border shadow-soft bg-card">
+            <a
+              href={effectiveImageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Clic para ampliar"
+            >
+              <img
+                src={effectiveImageUrl}
+                alt={
+                  customSettings.title || "Calendario escolar oficial de Des Moines Public Schools"
+                }
+                className="w-full rounded-xl object-contain max-h-[1200px] mx-auto hover:opacity-95 transition"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = calendarImage.url;
+                }}
+              />
+            </a>
+          </div>
+
+          <div className="mt-6">
+            <OfficialDataBadge
+              sourceName={`${selectedSchool.name} & DMPS — Calendario Oficial`}
+              sourceUrl="https://www.dmschools.org/calendar/"
+              state="Última versión oficial verificada"
+              lastSuccessAt={customSettings.lastUpdated || new Date().toISOString()}
+              updateType="Calendario escolar 2026-2027"
+            />
+          </div>
+        </section>
+      ) : (
+        /* Agenda Section */
         <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
           {/* Filter Bar */}
           <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
@@ -384,56 +481,6 @@ function CalendarPage() {
               ))}
             </div>
           )}
-        </section>
-      ) : (
-        /* PDF District Calendar Section */
-        <section className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-          <div className="flex flex-wrap gap-3">
-            <Button asChild className="min-h-11 rounded-xl">
-              <a href={calendarPdf.url} target="_blank" rel="noopener noreferrer" download>
-                <Download className="mr-2 size-4" aria-hidden="true" />
-                {isSpanish ? "Descargar PDF oficial" : "Download Official PDF"}
-              </a>
-            </Button>
-            <Button asChild variant="outline" className="min-h-11 rounded-xl">
-              <a href={calendarImage.url} target="_blank" rel="noopener noreferrer">
-                <Maximize2 className="mr-2 size-4" aria-hidden="true" />
-                {isSpanish ? "Ver imagen completa" : "View Full Image"}
-              </a>
-            </Button>
-            <Button asChild variant="ghost" className="min-h-11 rounded-xl">
-              <a
-                href="https://www.dmschools.org/calendar/"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="mr-2 size-4" aria-hidden="true" />
-                {isSpanish ? "Sitio oficial de DMPS" : "Official DMPS Website"}
-              </a>
-            </Button>
-          </div>
-
-          <div className="surface-card mt-6 overflow-hidden p-2 sm:p-4 rounded-2xl border border-border shadow-soft">
-            <a href={calendarImage.url} target="_blank" rel="noopener noreferrer">
-              <img
-                src={calendarImage.url}
-                alt="Calendario escolar 2026-2027 de Des Moines Public Schools"
-                width={1275}
-                height={1650}
-                className="w-full rounded-xl"
-              />
-            </a>
-          </div>
-
-          <div className="mt-6">
-            <OfficialDataBadge
-              sourceName="Des Moines Public Schools — Calendario Distrital Oficial"
-              sourceUrl="https://www.dmschools.org/calendar/"
-              state="Última versión verificada"
-              lastSuccessAt={new Date().toISOString()}
-              updateType="Calendario oficial DMPS 2026-2027"
-            />
-          </div>
         </section>
       )}
     </PublicShell>

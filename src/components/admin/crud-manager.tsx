@@ -16,14 +16,10 @@ export type { Field } from "./field-input";
 
 const SCHOOL_FIELD: Field = {
   name: "school_id",
-  label: "Escuela / Pertenece a",
+  label: "Escuela obligatoria (school_id)",
   type: "select",
-  options: [
-    { value: "lincoln", label: "Abraham Lincoln High School" },
-    { value: "east", label: "Des Moines East High School" },
-    { value: "all", label: "Todas las escuelas (Distrito)" },
-  ],
-  help: "Selecciona si este contenido pertenece a una escuela específica o a todo el distrito.",
+  options: [{ value: "lincoln", label: "Abraham Lincoln High School (Lincoln)" }],
+  help: "Cada registro debe pertenecer obligatoriamente a una escuela.",
 };
 
 const TABLES_WITH_SCHOOL_FIELD = new Set([
@@ -35,6 +31,7 @@ const TABLES_WITH_SCHOOL_FIELD = new Set([
   "activities",
   "faqs",
   "categories",
+  "resources",
 ]);
 
 export function CrudManager({
@@ -236,7 +233,7 @@ export function CrudManager({
       <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editing?.["id"] ? "Editar" : "Nuevo"}</DialogTitle>
+            <DialogTitle>{editing?.["id"] ? "Editar registro" : "Nuevo registro"}</DialogTitle>
           </DialogHeader>
           {editing ? (
             <form
@@ -246,6 +243,21 @@ export function CrudManager({
                 save.mutate(editing);
               }}
             >
+              {TABLES_WITH_SCHOOL_FIELD.has(table) && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-foreground font-medium flex items-center justify-between">
+                  <span>
+                    🏫 Administrando para:{" "}
+                    <strong className="text-primary font-bold">
+                      {editing["school_id"] === "lincoln"
+                        ? "Abraham Lincoln High School"
+                        : String(editing["school_id"] || "Abraham Lincoln High School")}
+                    </strong>
+                  </span>
+                  <span className="font-mono text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded">
+                    school_id: {String(editing["school_id"] || "lincoln")}
+                  </span>
+                </div>
+              )}
               {effectiveFields.map((f) => (
                 <FieldInput
                   key={f.name}

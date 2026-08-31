@@ -153,6 +153,15 @@ function ArticlePage() {
           </div>
         ) : (
           <>
+            {data?.featured_image_url && (
+              <div className="mt-6 overflow-hidden rounded-2xl border border-border shadow-soft">
+                <img
+                  src={data.featured_image_url}
+                  alt={data.image_alt || loc.title}
+                  className="w-full max-h-[420px] object-cover"
+                />
+              </div>
+            )}
             <h1 className="mt-6 text-4xl font-extrabold sm:text-5xl">{loc.title}</h1>
             {loc.summary ? (
               <p className="mt-4 text-xl text-muted-foreground">{loc.summary}</p>

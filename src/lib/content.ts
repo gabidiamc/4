@@ -3,6 +3,7 @@ import { readCache, writeCache } from "./sync";
 import type { LanguageCode } from "./i18n";
 import { filterBySchool, filterBySchoolStrict } from "./school-scope";
 import { computeContentStatus, isItemActive } from "./content-lifecycle";
+import { SEED_CATEGORIES, SEED_ARTICLES } from "./school-content-data";
 
 export type Block =
   | { type: "heading"; text: string }
@@ -64,7 +65,7 @@ export async function fetchCategories(schoolId?: string): Promise<CategoryRow[]>
       )
       .order("display_order", { ascending: true });
 
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       writeCache("categories", data);
       return filterBySchool(data as unknown as CategoryRow[], schoolId);
     }
@@ -74,16 +75,19 @@ export async function fetchCategories(schoolId?: string): Promise<CategoryRow[]>
 
   // Offline / Cache fallback: merge with category_translations if needed
   const cached = readCache<Record<string, unknown>>("categories") ?? [];
-  const trs = readCache<Record<string, unknown>>("category_translations") ?? [];
-  const merged = cached.map((c) => ({
-    ...c,
-    category_translations: mergeTranslations(
-      c["category_translations"] as Record<string, unknown>[] | undefined,
-      trs.filter((t) => t["category_id"] === c["id"]),
-    ),
-  })) as unknown as CategoryRow[];
+  if (cached.length > 0) {
+    const trs = readCache<Record<string, unknown>>("category_translations") ?? [];
+    const merged = cached.map((c) => ({
+      ...c,
+      category_translations: mergeTranslations(
+        c["category_translations"] as Record<string, unknown>[] | undefined,
+        trs.filter((t) => t["category_id"] === c["id"]),
+      ),
+    })) as unknown as CategoryRow[];
+    return filterBySchool(merged, schoolId);
+  }
 
-  return filterBySchool(merged, schoolId);
+  return filterBySchool(SEED_CATEGORIES, schoolId);
 }
 
 export function localizedCategory(cat: CategoryRow, lang: LanguageCode) {
@@ -129,7 +133,7 @@ export async function fetchPublishedArticles(
     if (categoryId) query = query.eq("category_id", categoryId);
     const { data, error } = await query;
 
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       const rows = (data ?? []) as unknown as ArticleRow[];
       writeCache("articles", rows);
       return filterBySchoolStrict(rows, schoolId);
@@ -140,27 +144,42 @@ export async function fetchPublishedArticles(
 
   // Offline / Cache fallback: merge with article_translations and categories
   const cached = readCache<Record<string, unknown>>("articles") ?? [];
-  const trs = readCache<Record<string, unknown>>("article_translations") ?? [];
-  const cats = readCache<Record<string, unknown>>("categories") ?? [];
+  if (cached.length > 0) {
+    const trs = readCache<Record<string, unknown>>("article_translations") ?? [];
+    const cats = readCache<Record<string, unknown>>("categories") ?? [];
 
-  const merged = cached
-    .filter((a) => a["status"] === "published" || !a["status"])
-    .filter((a) => !categoryId || a["category_id"] === categoryId || a["slug"] === categoryId)
-    .map((a) => {
-      const catObj = cats.find(
-        (c) => c["id"] === a["category_id"] || c["slug"] === a["category_id"],
-      );
-      return {
-        ...a,
-        categories: catObj ? { slug: catObj["slug"], name: catObj["name"] } : a["categories"],
-        article_translations: mergeTranslations(
-          a["article_translations"] as Record<string, unknown>[] | undefined,
-          trs.filter((t) => t["article_id"] === a["id"]),
-        ),
-      };
-    }) as unknown as ArticleRow[];
+    const merged = cached
+      .filter((a) => a["status"] === "published" || !a["status"])
+      .filter((a) => !categoryId || a["category_id"] === categoryId || a["slug"] === categoryId)
+      .map((a) => {
+        const catObj = cats.find(
+          (c) => c["id"] === a["category_id"] || c["slug"] === a["category_id"],
+        );
+        return {
+          ...a,
+          categories: catObj ? { slug: catObj["slug"], name: catObj["name"] } : a["categories"],
+          article_translations: mergeTranslations(
+            a["article_translations"] as Record<string, unknown>[] | undefined,
+            trs.filter((t) => t["article_id"] === a["id"]),
+          ),
+        };
+      }) as unknown as ArticleRow[];
 
-  return filterBySchoolStrict(merged, schoolId);
+    return filterBySchoolStrict(merged, schoolId);
+  }
+
+  // Default seed fallback
+  const filteredSeed = SEED_ARTICLES.filter(
+    (a) => !categoryId || a.category_id === categoryId || a.slug === categoryId,
+  ).map((a) => {
+    const cat = SEED_CATEGORIES.find((c) => c.id === a.category_id);
+    return {
+      ...a,
+      categories: cat ? { slug: cat.slug, name: cat.name } : null,
+    };
+  });
+
+  return filterBySchoolStrict(filteredSeed, schoolId);
 }
 
 export async function fetchArticleBySlug(slug: string): Promise<ArticleRow | null> {
@@ -180,30 +199,43 @@ export async function fetchArticleBySlug(slug: string): Promise<ArticleRow | nul
   const cats = readCache<Record<string, unknown>>("categories") ?? [];
 
   const found = cached.find((a) => a["slug"] === slug || a["id"] === slug);
-  if (!found) return null;
+  if (found) {
+    const catObj = cats.find(
+      (c) => c["id"] === found["category_id"] || c["slug"] === found["category_id"],
+    );
+    return {
+      ...found,
+      categories: catObj ? { slug: catObj["slug"], name: catObj["name"] } : found["categories"],
+      article_translations: mergeTranslations(
+        found["article_translations"] as Record<string, unknown>[] | undefined,
+        trs.filter((t) => t["article_id"] === found["id"]),
+      ),
+    } as unknown as ArticleRow;
+  }
 
-  const catObj = cats.find(
-    (c) => c["id"] === found["category_id"] || c["slug"] === found["category_id"],
-  );
-  const fullArticle = {
-    ...found,
-    categories: catObj ? { slug: catObj["slug"], name: catObj["name"] } : found["categories"],
-    article_translations: mergeTranslations(
-      found["article_translations"] as Record<string, unknown>[] | undefined,
-      trs.filter((t) => t["article_id"] === found["id"]),
-    ),
-  } as unknown as ArticleRow;
+  const seedFound = SEED_ARTICLES.find((a) => a.slug === slug || a.id === slug);
+  if (seedFound) {
+    const cat = SEED_CATEGORIES.find((c) => c.id === seedFound.category_id);
+    return {
+      ...seedFound,
+      categories: cat ? { slug: cat.slug, name: cat.name } : null,
+    };
+  }
 
-  return fullArticle;
+  return null;
 }
 
 export function adaptSchoolText(text: string, schoolId?: string): string {
   if (!text) return text;
   const currentSchool =
     schoolId ||
-    (typeof window !== "undefined" ? localStorage.getItem("dmps_selected_school_v2") : "lincoln");
+    (typeof window !== "undefined"
+      ? localStorage.getItem("dmps_selected_school_v2") || "lincoln"
+      : "lincoln");
+
   if (currentSchool === "east") {
     return text
+      .replace(/Abraham Lincoln High School/g, "Des Moines East High School")
       .replace(/Lincoln High School/g, "East High School")
       .replace(/Lincoln High/g, "East High")
       .replace(/Escuela Lincoln/g, "Escuela East High")
@@ -211,10 +243,22 @@ export function adaptSchoolText(text: string, schoolId?: string): string {
       .replace(/estudiantes de Lincoln/g, "estudiantes de East High")
       .replace(/alumnos de Lincoln/g, "alumnos de East High")
       .replace(/Lincoln Main Campus/g, "East High Main Campus")
+      .replace(/Railsplitters/g, "Scarlets")
+      .replace(/Railsplitter/g, "Scarlet")
+      .replace(/Rails/g, "Scarlets")
+      .replace(/2600 SW 9th St, Des Moines, IA 50315/g, "815 E 13th St, Des Moines, IA 50316")
       .replace(/lincoln\.bfl\.espanol@dmschools\.org/g, "rosario.jimenez@dmpschools.org")
+      .replace(/lincolnhigh\.dmschools\.org/g, "easthigh.dmschools.org")
+      .replace(/515-242-7500/g, "515-242-7788")
+      .replace(/515-242-7504/g, "515-242-7789")
+      .replace(/515-242-7508/g, "515-242-7790")
+      .replace(/515-242-7510/g, "515-242-7792")
+      .replace(/515-242-7515/g, "515-242-7795")
+      .replace(/515-242-7520/g, "515-242-7798")
       .replace(/515-242-7300/g, "515-380-1830")
-      .replace(/515-242-7508/g, "515-242-7700");
+      .replace(/\bLincoln\b/g, "East High");
   }
+
   return text;
 }
 

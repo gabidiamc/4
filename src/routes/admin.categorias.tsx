@@ -19,6 +19,7 @@ export const Route = createFileRoute("/admin/categorias")({
       defaults={{
         name: "",
         slug: "",
+        school_id: "lincoln",
         description: "",
         icon: "BookOpen",
         display_order: 0,
@@ -29,9 +30,11 @@ export const Route = createFileRoute("/admin/categorias")({
         { name: "name", label: "Nombre", required: true },
         { name: "slug", label: "Slug (dirección web)", required: true },
         { name: "description", label: "Descripción corta", type: "textarea" },
-        { name: "full_description", label: "Descripción completa", type: "textarea" },
-        { name: "icon", label: "Icono (nombre de Lucide)", help: "Ej.: BookOpen, HeartPulse, Bus" },
-        { name: "cover_image_url", label: "Imagen de portada (URL)", type: "url" },
+        {
+          name: "icon",
+          label: "Icono (nombre de Lucide)",
+          help: "Ej.: BookOpen, GraduationCap, Bus, Utensils, HeartPulse",
+        },
         { name: "display_order", label: "Orden", type: "number" },
         { name: "is_visible", label: "Visible en el sitio", type: "checkbox" },
         { name: "is_featured", label: "Destacada en la portada", type: "checkbox" },

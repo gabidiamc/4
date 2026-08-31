@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
@@ -80,17 +81,28 @@ function TopicPage() {
         {categories.isLoading ? (
           <Skeleton className="mt-6 h-16 w-2/3 rounded-xl" />
         ) : (
-          <header className="mt-6 flex min-w-0 items-start gap-4">
-            {category ? (
-              <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary-soft">
-                <CategoryIcon name={category.icon} className="size-7 text-primary" />
-              </span>
-            ) : null}
-            <div className="min-w-0">
-              <h1 className="text-3xl font-extrabold sm:text-4xl">{loc?.name ?? slug}</h1>
-              <p className="mt-2 text-lg text-muted-foreground">{loc?.description}</p>
-            </div>
-          </header>
+          <div>
+            {(category?.banner_url || (category as any)?.image_url) && (
+              <div className="mt-6 overflow-hidden rounded-2xl border border-border shadow-soft">
+                <img
+                  src={category.banner_url || (category as any).image_url}
+                  alt={loc?.name ?? slug}
+                  className="w-full max-h-[320px] object-cover"
+                />
+              </div>
+            )}
+            <header className="mt-6 flex min-w-0 items-start gap-4">
+              {category ? (
+                <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary-soft">
+                  <CategoryIcon name={category.icon} className="size-7 text-primary" />
+                </span>
+              ) : null}
+              <div className="min-w-0">
+                <h1 className="text-3xl font-extrabold sm:text-4xl">{loc?.name ?? slug}</h1>
+                <p className="mt-2 text-lg text-muted-foreground">{loc?.description}</p>
+              </div>
+            </header>
+          </div>
         )}
 
         <ul

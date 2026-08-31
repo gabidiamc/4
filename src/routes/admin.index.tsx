@@ -33,6 +33,17 @@ import {
   Zap,
   Info,
   Trash2,
+  Megaphone,
+  BookOpen,
+  FolderTree,
+  GraduationCap,
+  Users,
+  Trophy,
+  Bus,
+  Globe,
+  Phone,
+  Menu,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -63,6 +74,7 @@ function AdminDashboard() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<string>(searchParams.view || "overview");
+  const [categorySearchTerm, setCategorySearchTerm] = useState("");
   const [auditFilterUser, setAuditFilterUser] = useState("");
   const [auditFilterAction, setAuditFilterAction] = useState("all");
   const [auditFilterEntity, setAuditFilterEntity] = useState("all");
@@ -130,6 +142,29 @@ function AdminDashboard() {
       const { data: updateRequests = [] } = await supabase
         .from("update_requests")
         .select("id, status, kind, message, created_at");
+
+      // 5. Category counts in parallel
+      const [
+        { count: categoriesCount },
+        { count: programsCount },
+        { count: studentProgramsCount },
+        { count: activitiesCount },
+        { count: resourcesCount },
+        { count: contactsCount },
+        { count: servicesCount },
+        { count: dartRoutesCount },
+        { count: schoolsCount },
+      ] = await Promise.all([
+        supabase.from("categories").select("*", { count: "exact", head: true }),
+        supabase.from("programs").select("*", { count: "exact", head: true }),
+        supabase.from("student_programs").select("*", { count: "exact", head: true }),
+        supabase.from("activities").select("*", { count: "exact", head: true }),
+        supabase.from("resources").select("*", { count: "exact", head: true }),
+        supabase.from("contacts").select("*", { count: "exact", head: true }),
+        supabase.from("services").select("*", { count: "exact", head: true }),
+        supabase.from("dart_routes").select("*", { count: "exact", head: true }),
+        supabase.from("schools").select("*", { count: "exact", head: true }),
+      ]);
 
       // Calculate critical attention metrics
       const draftsCount =
@@ -209,10 +244,222 @@ function AdminDashboard() {
         totalArticles: articles?.length || 0,
         totalAnnouncements: announcements?.length || 0,
         totalEvents: events?.length || 0,
+        totalCategories: categoriesCount ?? 0,
+        totalPrograms: programsCount ?? 0,
+        totalStudentPrograms: studentProgramsCount ?? 0,
+        totalActivities: activitiesCount ?? 0,
+        totalResources: resourcesCount ?? 0,
+        totalContacts: contactsCount ?? 0,
+        totalServices: servicesCount ?? 0,
+        totalDartRoutes: dartRoutesCount ?? 0,
+        totalSchools: schoolsCount ?? 0,
       };
     },
     staleTime: 1000 * 20,
   });
+
+  const metrics = metricsQuery.data;
+
+  // Public menu categories mapping for direct editing
+  const publicCategories = useMemo(
+    () => [
+      {
+        id: "anuncios",
+        title: "Inicio y Avisos Oficiales",
+        description:
+          "Gestiona alertas urgentes, comunicados del distrito y noticias destacadas en la portada.",
+        publicRoute: "/announcements",
+        publicRouteLabel: "/ y /announcements",
+        adminRoute: "/admin/anuncios",
+        icon: Megaphone,
+        count: metrics?.totalAnnouncements ?? 0,
+        countLabel: "avisos",
+        badge: "Portada y Alertas",
+        badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+      },
+      {
+        id: "calendario",
+        title: "Calendario y Eventos Escolares",
+        description:
+          "Gestiona días festivos, conferencias, salidas tempranas y eventos deportivos.",
+        publicRoute: "/calendario",
+        publicRouteLabel: "/calendario",
+        adminRoute: "/admin/calendario",
+        icon: CalendarDays,
+        count: metrics?.totalEvents ?? 0,
+        countLabel: "eventos",
+        badge: "Fechas Clave",
+        badgeColor: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+      },
+      {
+        id: "articulos",
+        title: "Artículos, Guías y Temas",
+        description:
+          "Edita artículos informativos, guías para 9º grado, tutoriales e instrucciones paso a paso.",
+        publicRoute: "/topics",
+        publicRouteLabel: "/topics y /articles",
+        adminRoute: "/admin/articulos",
+        icon: BookOpen,
+        count: metrics?.totalArticles ?? 0,
+        countLabel: "artículos",
+        badge: "Guías Familias",
+        badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+      },
+      {
+        id: "categorias",
+        title: "Categorías de Temas",
+        description:
+          "Organiza las categorías principales, sus iconos, colores y jerarquías temáticas.",
+        publicRoute: "/topics",
+        publicRouteLabel: "/topics",
+        adminRoute: "/admin/categorias",
+        icon: FolderTree,
+        count: metrics?.totalCategories ?? 0,
+        countLabel: "categorías",
+        badge: "Estructura Temática",
+        badgeColor: "bg-purple-500/10 text-purple-600 border-purple-500/20",
+      },
+      {
+        id: "programas",
+        title: "Programas Académicos",
+        description:
+          "Gestiona programas AP, DMACC, Carrera Técnica, grados ofrecidos y requisitos de inscripción.",
+        publicRoute: "/programas",
+        publicRouteLabel: "/programas",
+        adminRoute: "/admin/programas",
+        icon: GraduationCap,
+        count: metrics?.totalPrograms ?? 0,
+        countLabel: "programas",
+        badge: "Académico",
+        badgeColor: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
+      },
+      {
+        id: "programas_estudiantes",
+        title: "Programas para Estudiantes",
+        description:
+          "Gestiona clubes extracurriculares, apoyos socioemocionales, tutorías y actividades estudiantiles.",
+        publicRoute: "/programas-estudiantes",
+        publicRouteLabel: "/programas-estudiantes",
+        adminRoute: "/admin/programas-estudiantes",
+        icon: Users,
+        count: metrics?.totalStudentPrograms ?? 0,
+        countLabel: "programas",
+        badge: "Apoyo Estudiantil",
+        badgeColor: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
+      },
+      {
+        id: "actividades",
+        title: "Deportes y Actividades",
+        description:
+          "Administra deportes de otoño/invierno/primavera, entrenadores, horarios y enlaces Bound.",
+        publicRoute: "/deportes-actividades",
+        publicRouteLabel: "/deportes-actividades",
+        adminRoute: "/admin/actividades",
+        icon: Trophy,
+        count: metrics?.totalActivities ?? 0,
+        countLabel: "actividades",
+        badge: "Deportes / Clubes",
+        badgeColor: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+      },
+      {
+        id: "dart",
+        title: "Transporte y Rutas DART",
+        description:
+          "Configura líneas de autobús escolar, paradas, alertas de desvío y mapa interactivo DART.",
+        publicRoute: "/transporte/dart",
+        publicRouteLabel: "/transporte/dart",
+        adminRoute: "/admin/dart/configuracion",
+        icon: Bus,
+        count: metrics?.totalDartRoutes ?? 0,
+        countLabel: "rutas",
+        badge: "Transporte",
+        badgeColor: "bg-teal-500/10 text-teal-600 border-teal-500/20",
+      },
+      {
+        id: "recursos",
+        title: "Recursos y Enlaces Rápidos",
+        description:
+          "Gestiona enlaces a portales, formatos PDF descargables y herramientas para padres.",
+        publicRoute: "/programas",
+        publicRouteLabel: "/programas (Recursos)",
+        adminRoute: "/admin/recursos",
+        icon: Globe,
+        count: metrics?.totalResources ?? 0,
+        countLabel: "recursos",
+        badge: "Enlaces Oficiales",
+        badgeColor: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+      },
+      {
+        id: "contactos",
+        title: "Directorio y Contacto (BFL)",
+        description:
+          "Administra teléfonos directos, oficinas escolares y enlaces bilingües para familias.",
+        publicRoute: "/contact",
+        publicRouteLabel: "/contact y /bfl-status",
+        adminRoute: "/admin/contactos",
+        icon: Phone,
+        count: metrics?.totalContacts ?? 0,
+        countLabel: "contactos",
+        badge: "Atención BFL",
+        badgeColor: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+      },
+      {
+        id: "servicios",
+        title: "Servicios y Portales (Apps)",
+        description:
+          "Administra enlaces directos a Canvas, Infinite Campus, pagos escolares y portales.",
+        publicRoute: "/apps",
+        publicRouteLabel: "/apps",
+        adminRoute: "/admin/servicios",
+        icon: Link2,
+        count: metrics?.totalServices ?? 0,
+        countLabel: "servicios",
+        badge: "Portales y Apps",
+        badgeColor: "bg-violet-500/10 text-violet-600 border-violet-500/20",
+      },
+      {
+        id: "escuelas",
+        title: "Escuelas y Sedes DMPS",
+        description:
+          "Actualiza información institucional, direcciones y directores de las escuelas del distrito.",
+        publicRoute: "/escuelas",
+        publicRouteLabel: "/escuelas",
+        adminRoute: "/admin/escuelas",
+        icon: SchoolIcon,
+        count: metrics?.totalSchools ?? 0,
+        countLabel: "escuelas",
+        badge: "Sedes Distrito",
+        badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+      },
+      {
+        id: "menu",
+        title: "Estructura y Orden del Menú",
+        description:
+          "Personaliza etiquetas, orden de aparición, iconos y visibilidad del menú público de navegación.",
+        publicRoute: "/",
+        publicRouteLabel: "Navegación Pública",
+        adminRoute: "/admin/menu",
+        icon: Menu,
+        count: 1,
+        countLabel: "editor",
+        badge: "Configuración Menú",
+        badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+      },
+    ],
+    [metrics],
+  );
+
+  const filteredCategories = useMemo(() => {
+    if (!categorySearchTerm.trim()) return publicCategories;
+    const term = categorySearchTerm.toLowerCase();
+    return publicCategories.filter(
+      (c) =>
+        c.title.toLowerCase().includes(term) ||
+        c.description.toLowerCase().includes(term) ||
+        c.publicRouteLabel.toLowerCase().includes(term) ||
+        c.badge.toLowerCase().includes(term),
+    );
+  }, [publicCategories, categorySearchTerm]);
 
   // Fetch Audit Logs
   const auditLogsQuery = useQuery({
@@ -232,8 +479,6 @@ function AdminDashboard() {
       return true;
     });
   }, [auditLogsQuery.data, auditFilterAction, auditFilterEntity, auditFilterUser]);
-
-  const metrics = metricsQuery.data;
 
   return (
     <div className="space-y-8 pb-12">
@@ -630,6 +875,106 @@ function AdminDashboard() {
                   Observaciones enviadas desde el sitio público
                 </p>
               </Link>
+            </div>
+          </div>
+
+          {/* PUBLIC MENU SECTIONS & CONTENT EDITORS GRID */}
+          <div className="space-y-4 pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-3">
+              <div>
+                <h2 className="text-xl font-extrabold text-foreground flex items-center gap-2.5">
+                  <Menu className="size-5 text-primary" />
+                  <span>Secciones del Menú Público: Editar Contenido a tu Gusto</span>
+                </h2>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                  Accede y edita directamente el contenido detrás de cada opción del menú y
+                  categoría del portal público.
+                </p>
+              </div>
+
+              {/* Search Category Filter */}
+              <div className="relative min-w-[240px] sm:w-72">
+                <Search className="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                <Input
+                  type="text"
+                  value={categorySearchTerm}
+                  onChange={(e) => setCategorySearchTerm(e.target.value)}
+                  placeholder="Filtrar secciones..."
+                  className="pl-9 pr-3 py-1.5 text-xs rounded-xl border-border bg-card"
+                />
+              </div>
+            </div>
+
+            {/* Grid of Public Menu Content Editors */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredCategories.map((cat) => {
+                const IconComponent = cat.icon;
+                return (
+                  <div
+                    key={cat.id}
+                    className="flex flex-col justify-between rounded-2xl border border-border/80 bg-card p-5 shadow-2xs hover:border-primary/50 hover:shadow-md transition-all group"
+                  >
+                    <div className="space-y-3">
+                      {/* Top Header with Icon, Route & Badge */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                            <IconComponent className="size-5" />
+                          </div>
+                          <div>
+                            <h3 className="font-extrabold text-sm text-foreground group-hover:text-primary transition-colors">
+                              {cat.title}
+                            </h3>
+                            <span className="text-[11px] font-mono text-muted-foreground">
+                              {cat.publicRouteLabel}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${cat.badgeColor}`}
+                        >
+                          {cat.badge}
+                        </span>
+                      </div>
+
+                      {/* Description */}
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {cat.description}
+                      </p>
+                    </div>
+
+                    {/* Footer Actions and Item Count */}
+                    <div className="mt-4 pt-3 border-t border-border/60 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                        <span className="size-2 rounded-full bg-emerald-500 inline-block"></span>
+                        <span>
+                          {cat.count} {cat.countLabel}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={cat.publicRoute}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-border text-[11px] font-bold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-2xs"
+                          title="Ver cómo se ve en el sitio público"
+                        >
+                          <span>Ver</span>
+                          <ExternalLink className="size-3" />
+                        </Link>
+
+                        <Link
+                          to={cat.adminRoute}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold shadow-soft hover:bg-primary-deep transition-all"
+                        >
+                          <span>Editar Contenido</span>
+                          <ArrowRight className="size-3" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

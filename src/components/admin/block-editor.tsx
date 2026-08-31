@@ -151,11 +151,44 @@ export function BlockEditor({
 }) {
   const [previewMode, setPreviewMode] = useState(false);
   const [activeImageDialogIndex, setActiveImageDialogIndex] = useState<number | null>(null);
+  const [activeLinkDialogIndex, setActiveLinkDialogIndex] = useState<number | null>(null);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [newImageAlt, setNewImageAlt] = useState("");
   const [newImageAlign, setNewImageAlign] = useState<"left" | "right" | "center" | "inline">(
     "left",
   );
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkText, setLinkText] = useState("");
+
+  // Track active selection across textareas to prevent losing focus/cursor jumping
+  const selectionCacheRef = React.useRef<{
+    [key: number]: { start: number; end: number; text: string };
+  }>({});
+
+  function recordSelection(blockIndex: number) {
+    const textarea = document.getElementById(
+      `block-textarea-${blockIndex}`,
+    ) as HTMLTextAreaElement | null;
+    if (textarea) {
+      selectionCacheRef.current[blockIndex] = {
+        start: textarea.selectionStart,
+        end: textarea.selectionEnd,
+        text: textarea.value.substring(textarea.selectionStart, textarea.selectionEnd),
+      };
+    }
+  }
+
+  function restoreCursor(blockIndex: number, newPos: number) {
+    requestAnimationFrame(() => {
+      const textarea = document.getElementById(
+        `block-textarea-${blockIndex}`,
+      ) as HTMLTextAreaElement | null;
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(newPos, newPos);
+      }
+    });
+  }
 
   function update(index: number, patch: Partial<Block>) {
     onChange(blocks.map((b, i) => (i === index ? { ...b, ...patch } : b)));
@@ -217,43 +250,82 @@ export function BlockEditor({
     const textarea = document.getElementById(
       `block-textarea-${blockIndex}`,
     ) as HTMLTextAreaElement | null;
-    if (!textarea) return;
+    const saved = selectionCacheRef.current[blockIndex];
+    const val = blocks[blockIndex]?.text || "";
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const val = textarea.value;
+    const start = textarea ? textarea.selectionStart : (saved?.start ?? val.length);
+    const end = textarea ? textarea.selectionEnd : (saved?.end ?? val.length);
     const selectedText = val.substring(start, end) || "texto";
 
     let replacement = "";
     if (tag === "bold") replacement = `<strong>${selectedText}</strong>`;
     else if (tag === "italic") replacement = `<em>${selectedText}</em>`;
     else if (tag === "underline") replacement = `<u>${selectedText}</u>`;
-    else if (tag === "strike") replacement = `<s.${selectedText}</s>`;
+    else if (tag === "strike") replacement = `<s>${selectedText}</s>`;
     else if (tag === "code")
-      replacement = `<code className="px-1 bg-muted rounded">${selectedText}</code>`;
+      replacement = `<code class="px-1.5 py-0.5 bg-muted rounded font-mono text-xs">${selectedText}</code>`;
 
     const newText = val.substring(0, start) + replacement + val.substring(end);
     update(blockIndex, { text: newText });
+    restoreCursor(blockIndex, start + replacement.length);
   }
 
   function applyColorToSelection(blockIndex: number, colorHex: string, isBg = false) {
+    if (!colorHex) return;
     const textarea = document.getElementById(
       `block-textarea-${blockIndex}`,
     ) as HTMLTextAreaElement | null;
-    if (!textarea) return;
+    const saved = selectionCacheRef.current[blockIndex];
+    const val = blocks[blockIndex]?.text || "";
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const val = textarea.value;
-    const selectedText = val.substring(start, end) || "texto formateado";
-
-    if (!colorHex) return;
+    const start = textarea ? textarea.selectionStart : (saved?.start ?? val.length);
+    const end = textarea ? textarea.selectionEnd : (saved?.end ?? val.length);
+    const selectedText = val.substring(start, end) || "texto con color";
 
     const styleAttr = isBg ? `background-color: ${colorHex}` : `color: ${colorHex}`;
     const replacement = `<span style="${styleAttr}">${selectedText}</span>`;
 
     const newText = val.substring(0, start) + replacement + val.substring(end);
     update(blockIndex, { text: newText });
+    restoreCursor(blockIndex, start + replacement.length);
+  }
+
+  function openLinkModal(blockIndex: number) {
+    const textarea = document.getElementById(
+      `block-textarea-${blockIndex}`,
+    ) as HTMLTextAreaElement | null;
+    recordSelection(blockIndex);
+    const saved = selectionCacheRef.current[blockIndex];
+    const val = blocks[blockIndex]?.text || "";
+    const start = textarea ? textarea.selectionStart : (saved?.start ?? 0);
+    const end = textarea ? textarea.selectionEnd : (saved?.end ?? 0);
+    const selectedText = val.substring(start, end);
+
+    setLinkText(selectedText || "");
+    setLinkUrl("https://");
+    setActiveLinkDialogIndex(activeLinkDialogIndex === blockIndex ? null : blockIndex);
+  }
+
+  function insertLinkToSelection(blockIndex: number) {
+    if (!linkUrl.trim()) return;
+    const textarea = document.getElementById(
+      `block-textarea-${blockIndex}`,
+    ) as HTMLTextAreaElement | null;
+    const saved = selectionCacheRef.current[blockIndex];
+    const val = blocks[blockIndex]?.text || "";
+
+    const start = textarea ? textarea.selectionStart : (saved?.start ?? val.length);
+    const end = textarea ? textarea.selectionEnd : (saved?.end ?? val.length);
+    const label = linkText.trim() || linkUrl.trim();
+
+    const linkHtml = `<a href="${linkUrl.trim()}" target="_blank" rel="noopener noreferrer" class="text-primary underline font-medium hover:opacity-80">${label}</a>`;
+    const newText = val.substring(0, start) + linkHtml + val.substring(end);
+
+    update(blockIndex, { text: newText });
+    setActiveLinkDialogIndex(null);
+    setLinkUrl("");
+    setLinkText("");
+    restoreCursor(blockIndex, start + linkHtml.length);
   }
 
   return (
@@ -542,17 +614,69 @@ export function BlockEditor({
 
                       <div className="h-4 w-px bg-border" />
 
+                      {/* Insert Link Button */}
+                      <Button
+                        type="button"
+                        variant={activeLinkDialogIndex === i ? "secondary" : "outline"}
+                        size="sm"
+                        className="h-8 gap-1.5 rounded-lg text-xs font-semibold"
+                        onClick={() => openLinkModal(i)}
+                      >
+                        <LinkIcon className="size-3.5" /> Enlace
+                      </Button>
+
                       {/* Add Inline/Floating Image Button */}
                       <Button
                         type="button"
-                        variant="outline"
+                        variant={activeImageDialogIndex === i ? "secondary" : "outline"}
                         size="sm"
                         className="h-8 gap-1.5 rounded-lg text-xs font-semibold text-primary"
                         onClick={() =>
                           setActiveImageDialogIndex(activeImageDialogIndex === i ? null : i)
                         }
                       >
-                        <ImageIcon className="size-3.5" />+ Insertar Imagen
+                        <ImageIcon className="size-3.5" /> Imagen
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Link Modal / Panel */}
+                  {activeLinkDialogIndex === i && !previewMode && (
+                    <div className="mt-2 space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                          <LinkIcon className="size-3.5" /> Insertar Enlace en la Selección
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs"
+                          onClick={() => setActiveLinkDialogIndex(null)}
+                        >
+                          Cerrar
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <Input
+                          placeholder="Texto del enlace (ej.: Ver documento oficial)"
+                          value={linkText}
+                          onChange={(e) => setLinkText(e.target.value)}
+                          className="min-h-9 text-xs"
+                        />
+                        <Input
+                          placeholder="URL de destino (https://...)"
+                          value={linkUrl}
+                          onChange={(e) => setLinkUrl(e.target.value)}
+                          className="min-h-9 text-xs"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        className="min-h-9 w-full rounded-xl text-xs font-semibold"
+                        onClick={() => insertLinkToSelection(i)}
+                      >
+                        Insertar Enlace
                       </Button>
                     </div>
                   )}
@@ -715,7 +839,14 @@ export function BlockEditor({
                     <Textarea
                       id={`block-textarea-${i}`}
                       value={block.text || ""}
-                      onChange={(e) => update(i, { text: e.target.value })}
+                      onChange={(e) => {
+                        update(i, { text: e.target.value });
+                        recordSelection(i);
+                      }}
+                      onSelect={() => recordSelection(i)}
+                      onKeyUp={() => recordSelection(i)}
+                      onMouseUp={() => recordSelection(i)}
+                      onFocus={() => recordSelection(i)}
                       placeholder="Escribe el párrafo aquí... Puedes usar formato HTML (<strong>, <em>, <span style='color:#ef4444'>) o la barra de herramientas superior."
                       className="min-h-28 rounded-xl font-sans text-base leading-relaxed"
                       style={{

@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 
 export interface PreviewData {
-  type: "article" | "announcement" | "event" | "activity";
+  type: "article" | "announcement" | "event" | "activity" | "category" | "resource";
   title: string;
   summary?: string;
   body?: string;
@@ -34,6 +34,7 @@ export interface PreviewData {
   image_url?: string;
   image_alt?: string;
   status?: string;
+  items?: any[];
   translations?: Record<string, { title?: string; body?: string; summary?: string }>;
 }
 
@@ -52,19 +53,31 @@ export function PublicPreviewModal({
 }) {
   const [device, setDevice] = useState<"mobile" | "tablet" | "desktop">("mobile");
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [language, setLanguage] = useState<"es" | "en">("es");
+  const [language, setLanguage] = useState<"es" | "en" | "kar">("es");
   const [school, setSchool] = useState<string>("lincoln");
 
   if (!data) return null;
 
   const displayTitle =
-    language === "en" && data.translations?.en?.title ? data.translations.en.title : data.title;
+    language === "en" && data.translations?.en?.title
+      ? data.translations.en.title
+      : language === "kar" && (data.translations?.kar?.title || data.translations?.ksw?.title)
+        ? data.translations?.kar?.title || data.translations?.ksw?.title
+        : data.title;
+
   const displaySummary =
     language === "en" && data.translations?.en?.summary
       ? data.translations.en.summary
-      : data.summary;
+      : language === "kar" && (data.translations?.kar?.summary || data.translations?.ksw?.summary)
+        ? data.translations?.kar?.summary || data.translations?.ksw?.summary
+        : data.summary;
+
   const displayBody =
-    language === "en" && data.translations?.en?.body ? data.translations.en.body : data.body;
+    language === "en" && data.translations?.en?.body
+      ? data.translations.en.body
+      : language === "kar" && (data.translations?.kar?.body || data.translations?.ksw?.body)
+        ? data.translations?.kar?.body || data.translations?.ksw?.body
+        : data.body;
 
   const getContainerWidth = () => {
     switch (device) {
@@ -190,6 +203,17 @@ export function PublicPreviewModal({
                 }`}
               >
                 EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage("kar")}
+                className={`px-2 py-1 rounded-lg transition-colors ${
+                  language === "kar"
+                    ? "bg-primary text-white"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                ကညီ
               </button>
             </div>
 
