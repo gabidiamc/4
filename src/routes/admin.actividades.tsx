@@ -4,9 +4,11 @@ import {
   Archive,
   CheckCircle2,
   Clock,
+  Copy,
   ExternalLink,
   Eye,
   EyeOff,
+  FolderPlus,
   Globe,
   HelpCircle,
   Layers,
@@ -21,11 +23,14 @@ import {
   Trash2,
   Trophy,
   Users,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { FileUploadInput } from "@/components/file-upload-input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSchool, getSchoolById } from "@/lib/school";
@@ -35,6 +40,8 @@ import {
   type BoundSyncLog,
   type BoundStatus,
   type BoundTeam,
+  type BoundCategory,
+  type GenderGroup,
   formatDateFormatted,
   deleteActivity,
   fetchActivitiesForSchool,
@@ -100,13 +107,75 @@ export function AdminDeportesActividadesPage() {
   const [primaryDupId, setPrimaryDupId] = useState("");
   const [secondaryDupId, setSecondaryDupId] = useState("");
 
-  // Edit Activity Modal
+  // Edit / Create Activity State
   const [editingActivity, setEditingActivity] = useState<BoundActivity | null>(null);
+  const [isNewActivity, setIsNewActivity] = useState(false);
 
   // Helper to show save feedback
   const showSuccess = (msg: string) => {
     setSaveSuccessMsg(msg);
-    setTimeout(() => setSaveSuccessMsg(""), 3000);
+    setTimeout(() => setSaveSuccessMsg(""), 3500);
+  };
+
+  // Start creating a new activity from scratch
+  const handleStartNewActivity = () => {
+    const timestamp = Date.now();
+    const newAct: BoundActivity = {
+      id: `act-custom-${timestamp}`,
+      bound_id: `custom-${timestamp}`,
+      name: "",
+      translated_name: "",
+      slug: `actividad-${timestamp}`,
+      category: "coed",
+      gender_group: "Coed",
+      activity_type: "sport",
+      official_url: "",
+      registration_url: "",
+      icon_url: null,
+      card_banner_url: null,
+      card_bg: null,
+      season: "Year-Round",
+      status: "Registro abierto",
+      is_active: true,
+      verified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      levels: ["Varsity", "JV"],
+    };
+    setEditingActivity(newAct);
+    setIsNewActivity(true);
+  };
+
+  // Duplicate activity
+  const handleDuplicateActivity = (source: BoundActivity) => {
+    const timestamp = Date.now();
+    const dup: BoundActivity = {
+      ...source,
+      id: `act-custom-${timestamp}`,
+      bound_id: `custom-${timestamp}`,
+      name: `${source.name} (Copia)`,
+      translated_name: source.translated_name ? `${source.translated_name} (Copia)` : null,
+      slug: `${source.slug}-copia-${timestamp}`,
+      updated_at: new Date().toISOString(),
+    };
+    setEditingActivity(dup);
+    setIsNewActivity(true);
+  };
+
+  // Delete activity
+  const handleDeleteActivity = (id: string, name: string) => {
+    if (!confirm(`¿Estás seguro de que deseas eliminar "${name}"?`)) return;
+    const updated = activities.filter((a) => a.id !== id);
+    setActivities(updated);
+    void deleteActivity(id).catch((e: Error) =>
+      alert(`No se pudo eliminar en la base de datos: ${e.message}`),
+    );
+    void saveActivitiesForSchool(updated, currentSchoolId).catch((e: Error) =>
+      alert(`No se pudo guardar en la base de datos: ${e.message}`),
+    );
+    if (editingActivity?.id === id) {
+      setEditingActivity(null);
+    }
+    showSuccess(`"${name}" ha sido eliminado.`);
   };
 
   // Toggle activity visibility/active
@@ -130,20 +199,41 @@ export function AdminDeportesActividadesPage() {
     showSuccess("Configuración del anuncio de registro guardada con éxito.");
   };
 
-  // Save single activity edits
+  // Save single activity edits (both new and update)
   const handleSaveActivityEdit = () => {
     if (!editingActivity) return;
-    const updated = activities.map((a) =>
-      a.id === editingActivity.id
-        ? { ...editingActivity, updated_at: new Date().toISOString() }
-        : a,
-    );
+    if (!editingActivity.name.trim()) {
+      alert("Por favor ingresa un nombre para el deporte o actividad.");
+      return;
+    }
+
+    let updated: BoundActivity[];
+    const now = new Date().toISOString();
+    const finalActivity: BoundActivity = {
+      ...editingActivity,
+      updated_at: now,
+      verified_at: editingActivity.verified_at || now,
+      card_banner_url: editingActivity.card_banner_url || editingActivity.icon_url || null,
+      icon_url: editingActivity.card_banner_url || editingActivity.icon_url || null,
+    };
+
+    if (isNewActivity) {
+      updated = [finalActivity, ...activities];
+    } else {
+      updated = activities.map((a) => (a.id === finalActivity.id ? finalActivity : a));
+    }
+
     setActivities(updated);
     void saveActivitiesForSchool(updated, currentSchoolId).catch((e: Error) =>
       alert(`No se pudo guardar en la base de datos: ${e.message}`),
     );
     setEditingActivity(null);
-    showSuccess(`Actividad "${editingActivity.name}" actualizada.`);
+    setIsNewActivity(false);
+    showSuccess(
+      isNewActivity
+        ? `Actividad "${finalActivity.name}" creada y guardada con éxito.`
+        : `Actividad "${finalActivity.name}" actualizada con éxito.`,
+    );
   };
 
   // Trigger manual Bound sync
@@ -174,7 +264,7 @@ export function AdminDeportesActividadesPage() {
       );
 
       setSyncing(false);
-      showSuccess("Sincronización y verificación con Bound completada.");
+      showSuccess("Sincronización y verificación completada.");
     }, 1200);
   };
 
@@ -213,25 +303,33 @@ export function AdminDeportesActividadesPage() {
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
             <Trophy className="size-3.5" />
-            {activeSchool.name} · Bound Admin Sync
+            {activeSchool.name} · Gestión de Deportes y Actividades
           </span>
           <h1 className="mt-2 text-2xl font-extrabold text-foreground sm:text-3xl">
-            Gestión de Deportes y Actividades
+            Deportes y Actividades
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sincronización, verificación de enlaces oficiales de Bound y configuración del anuncio
-            de registro para {activeSchool.shortName}.
+            Crea cualquier deporte o actividad libremente, personaliza banners con ajuste
+            interactivo, diseña tarjetas y administra registros de {activeSchool.shortName}.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            onClick={handleStartNewActivity}
+            className="min-h-11 rounded-xl font-bold bg-primary text-primary-foreground shadow-sm hover:opacity-90"
+          >
+            <Plus className="size-4 mr-1.5" />+ Nuevo Deporte o Actividad
+          </Button>
+
           <Button
             onClick={handleManualSync}
             disabled={syncing}
-            className="min-h-11 rounded-xl font-bold bg-primary text-primary-foreground shadow"
+            variant="outline"
+            className="min-h-11 rounded-xl font-bold bg-card"
           >
             <RefreshCw className={`size-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Sincronizando..." : "Sincronizar con Bound ahora"}
+            {syncing ? "Sincronizando..." : "Sincronizar"}
           </Button>
 
           <a
@@ -240,7 +338,7 @@ export function AdminDeportesActividadesPage() {
             rel="noreferrer noopener"
             className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-xs font-semibold hover:bg-muted"
           >
-            Ver fuente Bound ({activeSchool.shortName})
+            Ver fuente ({activeSchool.shortName})
             <ExternalLink className="size-3.5" />
           </a>
         </div>
@@ -273,25 +371,21 @@ export function AdminDeportesActividadesPage() {
 
         <div className="surface-card p-4 space-y-1">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Mixtos & Extracurriculares
+            Mixtos & Clubes
           </p>
           <p className="text-2xl font-black text-foreground">
             {coedActivities.length + extraActivities.length}
           </p>
-          <p className="text-[11px] text-muted-foreground">Cheer, Band, Choir, Drama, Esports</p>
+          <p className="text-[11px] text-muted-foreground">Cheer, Band, Robótica, Drama, Debate</p>
         </div>
 
         <div className="surface-card p-4 space-y-1">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Estado de Registro
+            Total Actividades
           </p>
-          <p className="text-2xl font-black text-emerald-600">
-            {regSettings.is_enabled ? "Activo" : "Inactivo"}
-          </p>
+          <p className="text-2xl font-black text-primary">{activities.length}</p>
           <p className="text-[11px] text-muted-foreground">
-            {currentSchoolId === "east"
-              ? "Apoyo: Rosario Jiménez & Francisco Hernández"
-              : "Apoyo: Brenda Lucero & Veronica Ortiz"}
+            {activities.filter((a) => a.is_active).length} activas y visibles
           </p>
         </div>
       </div>
@@ -306,17 +400,7 @@ export function AdminDeportesActividadesPage() {
               : "bg-card border border-border text-foreground hover:bg-muted"
           }`}
         >
-          Resumen General
-        </button>
-        <button
-          onClick={() => setActiveTab("announcement")}
-          className={`min-h-9 px-3.5 rounded-lg whitespace-nowrap transition-colors ${
-            activeTab === "announcement"
-              ? "bg-primary text-primary-foreground font-bold"
-              : "bg-card border border-border text-foreground hover:bg-muted"
-          }`}
-        >
-          Anuncio de Registro & Apoyo
+          Todas ({activities.length})
         </button>
         <button
           onClick={() => setActiveTab("girls")}
@@ -356,7 +440,17 @@ export function AdminDeportesActividadesPage() {
               : "bg-card border border-border text-foreground hover:bg-muted"
           }`}
         >
-          Extracurriculares ({extraActivities.length})
+          Clubes & Talleres ({extraActivities.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("announcement")}
+          className={`min-h-9 px-3.5 rounded-lg whitespace-nowrap transition-colors ${
+            activeTab === "announcement"
+              ? "bg-primary text-primary-foreground font-bold"
+              : "bg-card border border-border text-foreground hover:bg-muted"
+          }`}
+        >
+          Anuncio de Registro & Apoyo
         </button>
         <button
           onClick={() => setActiveTab("teams")}
@@ -366,7 +460,7 @@ export function AdminDeportesActividadesPage() {
               : "bg-card border border-border text-foreground hover:bg-muted"
           }`}
         >
-          Equipos ({teams.length})
+          Equipos
         </button>
         <button
           onClick={() => setActiveTab("sync")}
@@ -376,7 +470,7 @@ export function AdminDeportesActividadesPage() {
               : "bg-card border border-border text-foreground hover:bg-muted"
           }`}
         >
-          Historial de Sincronización
+          Historial Sync
         </button>
         <button
           onClick={() => setActiveTab("duplicates")}
@@ -386,47 +480,42 @@ export function AdminDeportesActividadesPage() {
               : "bg-card border border-border text-foreground hover:bg-muted"
           }`}
         >
-          Gestión de Duplicados
+          Duplicados
         </button>
       </div>
 
-      {/* TAB CONTENT: ANNOUNCEMENT SETTINGS */}
+      {/* TAB CONTENT: ANNOUNCEMENT */}
       {activeTab === "announcement" && (
         <div className="surface-card p-6 space-y-6">
-          <div className="flex items-center justify-between border-b border-border pb-4">
-            <div>
-              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                <Sparkles className="size-5 text-primary" />
-                Configuración del Anuncio de Registro
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                Personaliza el banner de aviso, personas de apoyo y verifica el enlace oficial de
-                Bound.
-              </p>
-            </div>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground">
+              Configuración del Anuncio de Registro
+            </h2>
             <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-foreground">Mostrar anuncio:</label>
+              <label className="text-xs font-bold text-foreground">Mostrar Anuncio:</label>
               <input
                 type="checkbox"
                 checked={regSettings.is_enabled}
                 onChange={(e) => setRegSettings({ ...regSettings, is_enabled: e.target.checked })}
-                className="size-5 rounded text-primary focus:ring-primary"
+                className="size-5 rounded border-border text-primary focus:ring-primary"
               />
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground">Título del anuncio:</label>
+              <label className="text-xs font-bold text-foreground">Título del Anuncio:</label>
               <Input
                 value={regSettings.title}
                 onChange={(e) => setRegSettings({ ...regSettings, title: e.target.value })}
-                className="min-h-10 text-sm"
+                className="min-h-10 text-sm font-semibold"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground">Enlace de registro Bound:</label>
+              <label className="text-xs font-bold text-foreground">
+                Enlace de Registro Oficial:
+              </label>
               <Input
                 value={regSettings.registration_url}
                 onChange={(e) =>
@@ -447,11 +536,11 @@ export function AdminDeportesActividadesPage() {
             />
           </div>
 
-          {/* Personas de Apoyo (Brenda Lucero & Veronica Ortiz) */}
+          {/* Personas de Apoyo */}
           <div className="space-y-4 pt-4 border-t border-border">
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
               <Users className="size-4 text-primary" />
-              Personas de Apoyo Configurada
+              Personas de Apoyo Configuradas
             </h3>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -505,17 +594,6 @@ export function AdminDeportesActividadesPage() {
             </div>
           </div>
 
-          {/* Banner Live Preview */}
-          <div className="pt-4 border-t border-border space-y-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Vista previa en vivo del banner:
-            </p>
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2">
-              <p className="font-bold text-base text-foreground">{regSettings.title}</p>
-              <p className="text-xs text-foreground/90">{regSettings.message}</p>
-            </div>
-          </div>
-
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
             <Button onClick={handleSaveRegSettings} className="min-h-11 px-6 font-bold rounded-xl">
               <Save className="size-4 mr-2" />
@@ -532,19 +610,24 @@ export function AdminDeportesActividadesPage() {
         activeTab === "coed" ||
         activeTab === "extracurricular") && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="relative flex-1 min-w-[240px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filtrar por nombre..."
+                placeholder="Buscar por deporte, actividad o traducción..."
                 className="pl-9 min-h-10 text-xs rounded-xl"
               />
             </div>
-            <span className="text-xs text-muted-foreground">
-              Mostrando deportes/actividades para Lincoln HS
-            </span>
+
+            <Button
+              onClick={handleStartNewActivity}
+              className="min-h-10 rounded-xl font-bold bg-primary text-primary-foreground text-xs shadow-xs"
+            >
+              <Plus className="size-3.5 mr-1" />
+              Agregar Deporte o Actividad
+            </Button>
           </div>
 
           <div className="surface-card overflow-hidden rounded-2xl border border-border">
@@ -552,8 +635,9 @@ export function AdminDeportesActividadesPage() {
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/50 text-muted-foreground font-bold uppercase tracking-wider border-b border-border">
                   <tr>
+                    <th className="p-3.5">Portada</th>
                     <th className="p-3.5">Nombre Oficial</th>
-                    <th className="p-3.5">Traducción</th>
+                    <th className="p-3.5">Traducción / Español</th>
                     <th className="p-3.5">Categoría</th>
                     <th className="p-3.5">Temporada</th>
                     <th className="p-3.5">Estado</th>
@@ -577,58 +661,102 @@ export function AdminDeportesActividadesPage() {
                           a.translated_name?.toLowerCase().includes(searchQuery.toLowerCase())
                         : true,
                     )
-                    .map((act) => (
-                      <tr key={act.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="p-3.5 font-bold text-foreground">
-                          {act.name}
-                          <a
-                            href={act.official_url}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="inline-block ml-1.5 text-muted-foreground hover:text-primary"
-                          >
-                            <ExternalLink className="size-3" />
-                          </a>
-                        </td>
-                        <td className="p-3.5 text-muted-foreground">
-                          {act.translated_name || "—"}
-                        </td>
-                        <td className="p-3.5 uppercase font-semibold text-primary">
-                          {act.category}
-                        </td>
-                        <td className="p-3.5">{act.season}</td>
-                        <td className="p-3.5 font-bold text-emerald-600">{act.status}</td>
-                        <td className="p-3.5">
-                          {act.is_active ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 font-bold">
-                              <Eye className="size-3.5" /> Visible
+                    .map((act) => {
+                      const banner = act.card_banner_url || act.icon_url;
+                      return (
+                        <tr key={act.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="p-3.5">
+                            {banner ? (
+                              <img
+                                src={banner}
+                                alt={act.name}
+                                className="size-10 rounded-lg object-cover border border-border/80 bg-muted/20"
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="size-10 rounded-lg bg-muted/40 border border-border/60 flex items-center justify-center text-[10px] text-muted-foreground font-bold">
+                                {act.name.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3.5 font-bold text-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <span>{act.name}</span>
+                              {act.official_url && (
+                                <a
+                                  href={act.official_url}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="text-muted-foreground hover:text-primary"
+                                >
+                                  <ExternalLink className="size-3" />
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3.5 text-muted-foreground">
+                            {act.translated_name || "—"}
+                          </td>
+                          <td className="p-3.5 uppercase font-semibold text-primary">
+                            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px]">
+                              {act.category}
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-amber-600 font-bold">
-                              <EyeOff className="size-3.5" /> Oculto
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3.5 text-right space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingActivity(act)}
-                            className="min-h-8 text-xs rounded-lg"
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => toggleActivityActive(act.id)}
-                            className="min-h-8 text-xs rounded-lg"
-                          >
-                            {act.is_active ? "Ocultar" : "Mostrar"}
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="p-3.5">{act.season}</td>
+                          <td className="p-3.5 font-bold text-emerald-600">{act.status}</td>
+                          <td className="p-3.5">
+                            {act.is_active ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-600 font-bold">
+                                <Eye className="size-3.5" /> Visible
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-amber-600 font-bold">
+                                <EyeOff className="size-3.5" /> Oculto
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingActivity(act);
+                                setIsNewActivity(false);
+                              }}
+                              className="min-h-8 text-xs rounded-lg font-semibold"
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDuplicateActivity(act)}
+                              className="min-h-8 text-xs rounded-lg"
+                              title="Duplicar actividad"
+                            >
+                              <Copy className="size-3.5 text-muted-foreground" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => toggleActivityActive(act.id)}
+                              className="min-h-8 text-xs rounded-lg"
+                            >
+                              {act.is_active ? "Ocultar" : "Mostrar"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteActivity(act.id, act.name)}
+                              className="min-h-8 text-xs rounded-lg text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
@@ -753,103 +881,500 @@ export function AdminDeportesActividadesPage() {
         </div>
       )}
 
-      {/* MODAL FOR EDITING SINGLE ACTIVITY */}
+      {/* ALL-IN-ONE MODAL: CREATE & EDIT ACTIVITY WITH REAL-TIME LIVE CARD PREVIEW */}
       {editingActivity && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-card border border-border p-6 space-y-4">
-            <h3 className="text-lg font-bold text-foreground">
-              Editar Actividad: {editingActivity.name}
-            </h3>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="font-bold">Nombre Oficial:</label>
-                <Input
-                  value={editingActivity.name}
-                  onChange={(e) => setEditingActivity({ ...editingActivity, name: e.target.value })}
-                  className="mt-1 min-h-9"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold">Traducción al Español:</label>
-                <Input
-                  value={editingActivity.translated_name || ""}
-                  onChange={(e) =>
-                    setEditingActivity({ ...editingActivity, translated_name: e.target.value })
-                  }
-                  className="mt-1 min-h-9"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold">URL Oficial en Bound:</label>
-                <Input
-                  value={editingActivity.official_url}
-                  onChange={(e) =>
-                    setEditingActivity({ ...editingActivity, official_url: e.target.value })
-                  }
-                  className="mt-1 min-h-9"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-bold">Temporada:</label>
-                  <select
-                    value={editingActivity.season}
-                    onChange={(e) =>
-                      setEditingActivity({
-                        ...editingActivity,
-                        season: e.target.value as BoundActivity["season"],
-                      })
-                    }
-                    className="w-full min-h-9 rounded-lg border border-input bg-card p-1 text-xs"
-                  >
-                    <option value="Fall">Otoño (Fall)</option>
-                    <option value="Winter">Invierno (Winter)</option>
-                    <option value="Spring">Primavera (Spring)</option>
-                    <option value="Summer">Verano (Summer)</option>
-                    <option value="Year-Round">Todo el año</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-bold">Estado:</label>
-                  <select
-                    value={editingActivity.status}
-                    onChange={(e) =>
-                      setEditingActivity({
-                        ...editingActivity,
-                        status: e.target.value as BoundStatus,
-                      })
-                    }
-                    className="w-full min-h-9 rounded-lg border border-input bg-card p-1 text-xs"
-                  >
-                    <option value="En temporada">En temporada</option>
-                    <option value="Próximamente">Próximamente</option>
-                    <option value="Fuera de temporada">Fuera de temporada</option>
-                    <option value="Registro abierto">Registro abierto</option>
-                    <option value="Registro cerrado">Registro cerrado</option>
-                  </select>
-                </div>
+        <Dialog open onOpenChange={() => setEditingActivity(null)}>
+          <DialogContent className="max-h-[94dvh] overflow-y-auto sm:max-w-4xl lg:max-w-6xl p-0 gap-0 rounded-2xl">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-border/80 bg-muted/20">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-2xl font-extrabold flex items-center gap-2 text-foreground">
+                  <Trophy className="size-5 text-primary" />
+                  <span>
+                    {isNewActivity
+                      ? "Crear Nuevo Deporte o Actividad"
+                      : `Editar Actividad: ${editingActivity.name || "Sin título"}`}
+                  </span>
+                </DialogTitle>
+                <span className="text-xs font-bold text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-xl">
+                  {activeSchool.shortName}
+                </span>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-              <Button
-                variant="ghost"
-                onClick={() => setEditingActivity(null)}
-                className="min-h-9 text-xs"
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleSaveActivityEdit} className="min-h-9 text-xs font-bold">
-                Guardar Cambios
-              </Button>
+            {/* Modal Body: Form and Integrated Live Preview together */}
+            <div className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Form controls (Left Column) */}
+                <div className="lg:col-span-7 space-y-4">
+                  {/* Name and Spanish Name */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                        Nombre Oficial <span className="text-destructive">*</span>
+                      </label>
+                      <Input
+                        value={editingActivity.name}
+                        onChange={(e) =>
+                          setEditingActivity({ ...editingActivity, name: e.target.value })
+                        }
+                        placeholder="Ej: Fútbol Femenino, Robótica..."
+                        className="mt-1.5 min-h-10 rounded-xl text-sm font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                        Traducción / Español / Descripción
+                      </label>
+                      <Input
+                        value={editingActivity.translated_name || ""}
+                        onChange={(e) =>
+                          setEditingActivity({
+                            ...editingActivity,
+                            translated_name: e.target.value || null,
+                          })
+                        }
+                        placeholder="Ej: Soccer Femenino..."
+                        className="mt-1.5 min-h-10 rounded-xl text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Banner Upload with Move, Scale & Rotate Image Adjuster */}
+                  <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Banner de Portada de la Tarjeta
+                      </label>
+                      <span className="text-[11px] text-primary font-semibold">
+                        Soporta Mover, Escalar y Rotar
+                      </span>
+                    </div>
+                    <FileUploadInput
+                      id="activity-banner-input"
+                      value={editingActivity.card_banner_url || editingActivity.icon_url || ""}
+                      onChange={(url) =>
+                        setEditingActivity({
+                          ...editingActivity,
+                          card_banner_url: url,
+                          icon_url: url,
+                        })
+                      }
+                      helperText="Sube una foto o ilustración. Podrás moverla, rotarla y recortarla a tu gusto."
+                      placeholder="https://... o sube una imagen"
+                      accept="image/*"
+                    />
+                  </div>
+
+                  {/* Card Background Color & Gradients Palette */}
+                  <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Fondo de la Tarjeta
+                      </label>
+                      {editingActivity.card_bg && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingActivity({ ...editingActivity, card_bg: null })}
+                          className="text-[11px] font-semibold text-primary hover:underline"
+                        >
+                          Restablecer por defecto
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Quick Gradients */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
+                        Degradados Rápidos
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        {[
+                          { name: "Por defecto", val: "" },
+                          {
+                            name: "Amanecer",
+                            val: "linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%)",
+                          },
+                          {
+                            name: "Océano",
+                            val: "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)",
+                          },
+                          {
+                            name: "Rosa",
+                            val: "linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)",
+                          },
+                          {
+                            name: "Menta",
+                            val: "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)",
+                          },
+                          {
+                            name: "Lavanda",
+                            val: "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)",
+                          },
+                          {
+                            name: "Noche",
+                            val: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)",
+                          },
+                          {
+                            name: "Escarlata",
+                            val: "linear-gradient(135deg, #e11d48 0%, #fb923c 100%)",
+                          },
+                        ].map((g) => (
+                          <button
+                            key={g.name}
+                            type="button"
+                            onClick={() =>
+                              setEditingActivity({
+                                ...editingActivity,
+                                card_bg: g.val || null,
+                              })
+                            }
+                            style={g.val ? { background: g.val } : undefined}
+                            className={`h-7 rounded-lg px-2 text-[11px] font-bold transition-all border text-start flex items-center justify-between cursor-pointer ${
+                              (editingActivity.card_bg || "") === g.val
+                                ? "border-primary ring-2 ring-primary/40 shadow-xs"
+                                : "border-border hover:scale-[1.02]"
+                            } ${
+                              g.val.includes("#0f172a") || g.val.includes("#e11d48")
+                                ? "text-white"
+                                : "text-foreground bg-card"
+                            }`}
+                          >
+                            <span className="truncate">{g.name}</span>
+                            {(editingActivity.card_bg || "") === g.val && (
+                              <span className="text-[10px]">✓</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Solids */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
+                        Colores Sólidos
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { name: "Blanco", val: "#ffffff" },
+                          { name: "Gris Suave", val: "#f8fafc" },
+                          { name: "Azul Tenue", val: "#eff6ff" },
+                          { name: "Rosa Tenue", val: "#fff1f2" },
+                          { name: "Verde Tenue", val: "#ecfdf5" },
+                          { name: "Ámbar Tenue", val: "#fffbeb" },
+                          { name: "Púrpura Tenue", val: "#faf5ff" },
+                          { name: "Carbón Oscuro", val: "#0f172a" },
+                        ].map((c) => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() =>
+                              setEditingActivity({
+                                ...editingActivity,
+                                card_bg: c.val,
+                              })
+                            }
+                            style={{ backgroundColor: c.val }}
+                            className={`size-6 rounded-lg border transition-transform hover:scale-110 cursor-pointer ${
+                              editingActivity.card_bg === c.val
+                                ? "border-primary ring-2 ring-primary/40 shadow-xs"
+                                : "border-border"
+                            }`}
+                            title={c.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Custom Hex */}
+                    <div>
+                      <Input
+                        value={editingActivity.card_bg || ""}
+                        onChange={(e) =>
+                          setEditingActivity({
+                            ...editingActivity,
+                            card_bg: e.target.value || null,
+                          })
+                        }
+                        placeholder="Ej: #f0fdf4 o linear-gradient(...)"
+                        className="h-8 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Category, Season, Status */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                        Categoría
+                      </label>
+                      <select
+                        value={editingActivity.category}
+                        onChange={(e) => {
+                          const cat = e.target.value as BoundCategory;
+                          const genderMap: Record<BoundCategory, GenderGroup> = {
+                            girls: "Girls",
+                            girls_coop: "Girls",
+                            boys: "Boys",
+                            coed: "Coed",
+                            extracurricular: "Activity",
+                          };
+                          setEditingActivity({
+                            ...editingActivity,
+                            category: cat,
+                            gender_group: genderMap[cat] || "Coed",
+                            activity_type: cat === "extracurricular" ? "extracurricular" : "sport",
+                          });
+                        }}
+                        className="w-full mt-1 min-h-10 rounded-xl border border-input bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground"
+                      >
+                        <option value="girls">Chicas (Girls)</option>
+                        <option value="boys">Chicos (Boys)</option>
+                        <option value="coed">Mixto (Coed)</option>
+                        <option value="extracurricular">Club / Extracurricular</option>
+                        <option value="girls_coop">Cooperativa Chicas</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                        Temporada
+                      </label>
+                      <select
+                        value={editingActivity.season}
+                        onChange={(e) =>
+                          setEditingActivity({
+                            ...editingActivity,
+                            season: e.target.value as BoundActivity["season"],
+                          })
+                        }
+                        className="w-full mt-1 min-h-10 rounded-xl border border-input bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground"
+                      >
+                        <option value="Fall">Otoño (Fall)</option>
+                        <option value="Winter">Invierno (Winter)</option>
+                        <option value="Spring">Primavera (Spring)</option>
+                        <option value="Summer">Verano (Summer)</option>
+                        <option value="Year-Round">Todo el año</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                        Estado
+                      </label>
+                      <select
+                        value={editingActivity.status}
+                        onChange={(e) =>
+                          setEditingActivity({
+                            ...editingActivity,
+                            status: e.target.value as BoundStatus,
+                          })
+                        }
+                        className="w-full mt-1 min-h-10 rounded-xl border border-input bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground"
+                      >
+                        <option value="En temporada">En temporada</option>
+                        <option value="Próximamente">Próximamente</option>
+                        <option value="Fuera de temporada">Fuera de temporada</option>
+                        <option value="Registro abierto">Registro abierto</option>
+                        <option value="Registro cerrado">Registro cerrado</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* URLs & External Links */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                        URL Oficial / Sitio Web (Opcional)
+                      </label>
+                      <Input
+                        value={editingActivity.official_url}
+                        onChange={(e) =>
+                          setEditingActivity({
+                            ...editingActivity,
+                            official_url: e.target.value,
+                          })
+                        }
+                        placeholder="https://..."
+                        className="mt-1 min-h-9 text-xs rounded-xl"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                        URL de Registro / Formulario (Opcional)
+                      </label>
+                      <Input
+                        value={editingActivity.registration_url || ""}
+                        onChange={(e) =>
+                          setEditingActivity({
+                            ...editingActivity,
+                            registration_url: e.target.value || null,
+                          })
+                        }
+                        placeholder="https://..."
+                        className="mt-1 min-h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Live Real-time Card Preview */}
+                <div className="lg:col-span-5 sticky top-2">
+                  <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                        Vista Previa en Vivo de la Tarjeta
+                      </span>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground bg-background px-2 py-0.5 rounded-md border border-border">
+                        En Tiempo Real
+                      </span>
+                    </div>
+
+                    {/* Exact Activity Card Render matching public page */}
+                    {(() => {
+                      const banner = editingActivity.card_banner_url || editingActivity.icon_url;
+                      const cardBg = editingActivity.card_bg?.trim() || null;
+                      const isDarkBg =
+                        cardBg &&
+                        (cardBg.includes("#0") ||
+                          cardBg.includes("#1") ||
+                          cardBg.includes("0f172a") ||
+                          cardBg.includes("e11d48"));
+
+                      return (
+                        <div
+                          style={cardBg ? { background: cardBg } : undefined}
+                          className={`rounded-2xl border overflow-hidden transition-all duration-300 shadow-md ${
+                            isDarkBg
+                              ? "text-white border-white/20"
+                              : "bg-card text-foreground border-border/80"
+                          }`}
+                        >
+                          {/* Banner Image */}
+                          {banner ? (
+                            <div className="relative w-full overflow-hidden border-b border-border/40 bg-muted/20">
+                              <img
+                                src={banner}
+                                alt={editingActivity.name}
+                                className="w-full h-auto max-h-[500px] object-cover rounded-t-2xl"
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                          ) : (
+                            <div className="h-24 w-full bg-muted/40 border-b border-dashed border-border/60 flex flex-col items-center justify-center text-xs text-muted-foreground gap-1 p-3 text-center">
+                              <Sparkles className="size-4 text-primary/60" />
+                              <span>Sube una imagen para ver la portada aquí</span>
+                            </div>
+                          )}
+
+                          {/* Card Content */}
+                          <div className="p-4 space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <span
+                                className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase ${
+                                  isDarkBg ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
+                                }`}
+                              >
+                                {editingActivity.category}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  editingActivity.status === "En temporada" ||
+                                  editingActivity.status === "Registro abierto"
+                                    ? "bg-emerald-500/10 text-emerald-600"
+                                    : "bg-amber-500/10 text-amber-600"
+                                }`}
+                              >
+                                {editingActivity.status}
+                              </span>
+                            </div>
+
+                            <div>
+                              <h3
+                                className={`text-base font-extrabold leading-snug ${
+                                  isDarkBg ? "text-white" : "text-foreground"
+                                }`}
+                              >
+                                {editingActivity.name || "Nombre del deporte o actividad"}
+                              </h3>
+                              {editingActivity.translated_name && (
+                                <p
+                                  className={`text-xs mt-0.5 ${
+                                    isDarkBg ? "text-slate-300" : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {editingActivity.translated_name}
+                                </p>
+                              )}
+                            </div>
+
+                            <div
+                              className={`pt-2.5 border-t flex items-center justify-between text-xs font-bold ${
+                                isDarkBg
+                                  ? "border-white/20 text-white"
+                                  : "border-border/60 text-primary"
+                              }`}
+                            >
+                              <span className="text-[11px] font-medium text-muted-foreground">
+                                Temporada: {editingActivity.season}
+                              </span>
+                              <span>Ver detalles →</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    <p className="text-[11px] text-muted-foreground text-center pt-1">
+                      💡 La tarjeta se adapta al tamaño y proporciones de tu imagen con esquinas
+                      redondeadas.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer with Actions */}
+              <div className="flex items-center justify-between gap-3 pt-6 mt-6 border-t border-border">
+                {!isNewActivity ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => handleDeleteActivity(editingActivity.id, editingActivity.name)}
+                    className="min-h-10 text-xs text-destructive hover:bg-destructive/10 rounded-xl"
+                  >
+                    <Trash2 className="size-4 mr-1.5" />
+                    Eliminar Actividad
+                  </Button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setEditingActivity(null)}
+                    className="min-h-10 text-xs rounded-xl"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSaveActivityEdit}
+                    className="min-h-10 text-xs font-bold bg-primary text-primary-foreground rounded-xl px-5 shadow-xs"
+                  >
+                    <Save className="size-4 mr-1.5" />
+                    {isNewActivity ? "Crear y Guardar Actividad" : "Guardar Cambios"}
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

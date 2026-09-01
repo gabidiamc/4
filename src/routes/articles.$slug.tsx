@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useSchool } from "@/lib/school";
+import { getSchoolById, useSchool } from "@/lib/school";
 import { normalizeSchoolId } from "@/lib/school-scope";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CalendarCheck, Printer, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Printer, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { ArticleBlocks } from "@/components/article-blocks";
@@ -85,36 +85,37 @@ function ArticlePage() {
     if (article.data?.id) void logPageView(article.data.id, lang);
   }, [article.data?.id, lang]);
 
-  // La escuela elegida manda: si este artículo pertenece a la otra escuela,
-  // sustituimos la vista por el artículo equivalente de la escuela activa si existe.
-  useEffect(() => {
-    const owner = normalizeSchoolId(article.data?.school_id);
-    if (!schoolId || !owner || owner === schoolId) return;
-    const base = slug.replace(/-east$/, "");
-    const target = schoolId === "east" ? `${base}-east` : base;
-    if (target === slug) return;
-    void navigate({ to: "/articles/$slug", params: { slug: target }, replace: true });
-  }, [article.data?.school_id, schoolId, slug, navigate]);
-
   const data = article.data;
-  const owner = normalizeSchoolId(data?.school_id);
-  const isForeign = schoolId && owner && owner !== schoolId;
+  const rawSchoolId = data?.school_id;
+  const owner = normalizeSchoolId(rawSchoolId);
+
+  // An article is considered foreign ONLY when:
+  // 1. Article data has loaded
+  // 2. The user has a specific school selected (not "all")
+  // 3. The article is explicitly scoped to a single specific school (not undefined/null, and owner !== "all", "district", "global")
+  // 4. That owner school does NOT match the currently active school (owner !== schoolId)
+  const isExplicitlyScoped =
+    Boolean(rawSchoolId) && owner !== "all" && owner !== "district" && owner !== "global";
+  const isForeign = Boolean(data) && schoolId !== "all" && isExplicitlyScoped && owner !== schoolId;
   const loc = data ? localizedArticle(data, lang, schoolId ?? undefined) : null;
   const category = (categories.data ?? []).find((c) => c.id === data?.category_id);
 
   if (isForeign) {
-    const otherSchoolName =
-      owner === "east" ? "Des Moines East High School" : "Abraham Lincoln High School";
+    const otherSchool = getSchoolById(owner);
+    const otherSchoolName = otherSchool.name;
+    const currentSchoolName = selectedSchool.name;
     return (
       <PublicShell>
         <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6">
-          <ShieldCheck className="mx-auto size-12 text-primary" />
+          <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
+            <ShieldAlert className="size-8" />
+          </div>
           <h1 className="mt-4 text-3xl font-extrabold tracking-tight">
             Contenido exclusivo de {otherSchoolName}
           </h1>
           <p className="mt-3 text-muted-foreground leading-relaxed">
-            Este artículo pertenece a {otherSchoolName}. La información está separada por escuela
-            para evitar confusiones en horarios, contactos y trámites escolares.
+            Actualmente estás navegando con <strong>{currentSchoolName}</strong>. Este artículo
+            contiene información y reglamentos específicos de <strong>{otherSchoolName}</strong>.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Button className="min-h-11 rounded-xl" onClick={() => setSelectedSchool(owner)}>

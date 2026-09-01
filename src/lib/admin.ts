@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { filterBySchool, schoolIdForStorage } from "./school-scope";
 import { readCache, writeCache, notifyContentUpdated } from "./sync";
+import { SEED_CATEGORIES, SEED_ARTICLES } from "./school-content-data";
+import { INITIAL_SCHOOLS } from "./school";
+import { INITIAL_LINCOLN_RESOURCES } from "./resources";
 
 export type AppRole = "super_admin" | "admin" | "editor" | "translator" | "reviewer";
 
@@ -55,7 +58,7 @@ export async function listRows(
 
   try {
     const { data, error } = await table(name).select("*").order(orderBy, { ascending });
-    if (!error && Array.isArray(data)) {
+    if (!error && Array.isArray(data) && data.length > 0) {
       rows = data as Row[];
       writeCache(name, rows);
     } else {
@@ -63,6 +66,29 @@ export async function listRows(
     }
   } catch {
     rows = readCache<Row>(name) ?? [];
+  }
+
+  // If table is unpopulated in DB & cache, seed with defaults
+  if (rows.length === 0) {
+    if (name === "categories") {
+      rows = SEED_CATEGORIES.map((c) => ({
+        ...c,
+        category_translations: undefined,
+      })) as unknown as Row[];
+      writeCache("categories", rows);
+    } else if (name === "articles") {
+      rows = SEED_ARTICLES.map((a) => ({
+        ...a,
+        article_translations: undefined,
+      })) as unknown as Row[];
+      writeCache("articles", rows);
+    } else if (name === "schools") {
+      rows = INITIAL_SCHOOLS as unknown as Row[];
+      writeCache("schools", rows);
+    } else if (name === "resources") {
+      rows = INITIAL_LINCOLN_RESOURCES as unknown as Row[];
+      writeCache("resources", rows);
+    }
   }
 
   // If table does not have school_id (e.g. schools, audit_logs, site_settings), return all

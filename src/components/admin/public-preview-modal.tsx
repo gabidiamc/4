@@ -34,7 +34,7 @@ export interface PreviewData {
   image_url?: string;
   image_alt?: string;
   status?: string;
-  items?: any[];
+  items?: unknown[];
   translations?: Record<string, { title?: string; body?: string; summary?: string }>;
 }
 

@@ -1073,73 +1073,138 @@ function DeportesActividadesPage() {
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredActivities.map((act) => {
                   const statusClass = getStatusBadgeVariant(act.status);
+                  const bannerUrl =
+                    act.card_banner_url || (act.icon_url?.startsWith("http") ? act.icon_url : null);
+                  const cardBg = act.card_bg?.trim() || null;
+                  const isDarkBg =
+                    cardBg &&
+                    (cardBg.includes("#0") ||
+                      cardBg.includes("#1") ||
+                      cardBg.includes("0f172a") ||
+                      cardBg.includes("e11d48"));
+
                   return (
                     <div
                       key={act.id}
-                      className="surface-card flex flex-col justify-between p-5 hover:border-amber-500/50 transition-all shadow-xs rounded-2xl"
+                      style={cardBg ? { background: cardBg } : undefined}
+                      className={`surface-card flex flex-col justify-between overflow-hidden p-0 hover:border-amber-500/50 transition-all shadow-xs rounded-2xl ${
+                        isDarkBg ? "text-white border-white/20" : ""
+                      }`}
                     >
-                      <div>
-                        {/* Top categories & status */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-primary">
-                            {act.gender_group === "Girls" && t("sports.gender.girls")}
-                            {act.gender_group === "Boys" && t("sports.gender.boys")}
-                            {act.gender_group === "Coed" && t("sports.gender.coed")}
-                            {act.gender_group === "Activity" && t("sports.gender.activity")}
-                          </span>
-
-                          <span
-                            className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${statusClass}`}
-                          >
-                            {act.status}
-                          </span>
+                      {bannerUrl && (
+                        <div className="relative w-full overflow-hidden border-b border-border/50 bg-muted/20">
+                          <img
+                            src={bannerUrl}
+                            alt={act.name}
+                            className="w-full h-auto max-h-[600px] object-cover transition-transform duration-300 hover:scale-[1.02] rounded-t-2xl"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
                         </div>
+                      )}
 
-                        {/* Title & Translation */}
-                        <h3 className="text-xl font-bold text-foreground leading-snug">
-                          {act.name}
-                        </h3>
-                        {act.translated_name && act.translated_name !== act.name && (
-                          <p className="text-xs font-medium text-muted-foreground mt-0.5">
-                            {act.translated_name}
-                          </p>
-                        )}
+                      <div className="flex flex-1 flex-col justify-between p-5">
+                        <div>
+                          {/* Top categories & status */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider ${
+                                isDarkBg ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
+                              }`}
+                            >
+                              {act.gender_group === "Girls" && t("sports.gender.girls")}
+                              {act.gender_group === "Boys" && t("sports.gender.boys")}
+                              {act.gender_group === "Coed" && t("sports.gender.coed")}
+                              {act.gender_group === "Activity" && t("sports.gender.activity")}
+                            </span>
 
-                        {/* Details */}
-                        <div className="mt-4 space-y-2 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="size-3.5 text-primary shrink-0" />
-                            <span>
-                              {t("sports.seasonLabel")}{" "}
-                              <strong className="text-foreground font-semibold">
-                                {act.season}
-                              </strong>
+                            <span
+                              className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                                isDarkBg ? "bg-white/15 text-white border-white/30" : statusClass
+                              }`}
+                            >
+                              {act.status}
                             </span>
                           </div>
 
-                          {act.levels && act.levels.length > 0 && (
+                          {/* Title & Translation */}
+                          <h3
+                            className={`text-xl font-bold leading-snug ${
+                              isDarkBg ? "text-white" : "text-foreground"
+                            }`}
+                          >
+                            {act.name}
+                          </h3>
+                          {act.translated_name && act.translated_name !== act.name && (
+                            <p
+                              className={`text-xs font-medium mt-0.5 ${
+                                isDarkBg ? "text-slate-300" : "text-muted-foreground"
+                              }`}
+                            >
+                              {act.translated_name}
+                            </p>
+                          )}
+
+                          {/* Details */}
+                          <div
+                            className={`mt-4 space-y-2 text-xs ${
+                              isDarkBg ? "text-slate-200" : "text-muted-foreground"
+                            }`}
+                          >
                             <div className="flex items-center gap-2">
-                              <Users className="size-3.5 text-primary shrink-0" />
+                              <Calendar
+                                className={`size-3.5 shrink-0 ${
+                                  isDarkBg ? "text-amber-400" : "text-primary"
+                                }`}
+                              />
                               <span>
-                                {t("sports.levelsLabel")}{" "}
-                                <strong className="text-foreground font-semibold">
-                                  {act.levels.join(", ")}
+                                {t("sports.seasonLabel")}{" "}
+                                <strong
+                                  className={`font-semibold ${
+                                    isDarkBg ? "text-white" : "text-foreground"
+                                  }`}
+                                >
+                                  {act.season}
                                 </strong>
                               </span>
                             </div>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Card Buttons: Golden 'Ver información' button */}
-                      <div className="mt-6 pt-4 border-t border-border">
-                        <Button
-                          onClick={() => setSelectedActivity(act)}
-                          className="w-full min-h-11 rounded-xl font-extrabold text-xs bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-xs transition-colors"
+                            {act.levels && act.levels.length > 0 && (
+                              <div className="flex items-center gap-2">
+                                <Users
+                                  className={`size-3.5 shrink-0 ${
+                                    isDarkBg ? "text-amber-400" : "text-primary"
+                                  }`}
+                                />
+                                <span>
+                                  {t("sports.levelsLabel")}{" "}
+                                  <strong
+                                    className={`font-semibold ${
+                                      isDarkBg ? "text-white" : "text-foreground"
+                                    }`}
+                                  >
+                                    {act.levels.join(", ")}
+                                  </strong>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Card Buttons: Golden 'Ver información' button */}
+                        <div
+                          className={`mt-6 pt-4 border-t ${
+                            isDarkBg ? "border-white/20" : "border-border"
+                          }`}
                         >
-                          <Info className="size-4 mr-1.5" />
-                          {t("sports.viewInfo")}
-                        </Button>
+                          <Button
+                            onClick={() => setSelectedActivity(act)}
+                            className="w-full min-h-11 rounded-xl font-extrabold text-xs bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-xs transition-colors"
+                          >
+                            <Info className="size-4 mr-1.5" />
+                            {t("sports.viewInfo")}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );

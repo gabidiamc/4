@@ -27,39 +27,79 @@ export function AnnouncementCard({ announcement }: { announcement: AnnouncementR
   const { title, message } = localizedAnnouncement(announcement, lang);
   const style = STYLES[announcement.level];
   const Icon = style.Icon;
+  const bannerUrl = announcement.card_banner_url || null;
+  const cardBg = announcement.card_bg?.trim() || null;
+  const isDarkBg =
+    cardBg &&
+    (cardBg.includes("#0") ||
+      cardBg.includes("#1") ||
+      cardBg.includes("0f172a") ||
+      cardBg.includes("e11d48"));
 
   return (
     <article
-      className={`rounded-2xl border p-5 shadow-soft sm:p-6 ${style.wrap}`}
+      style={cardBg ? { background: cardBg } : undefined}
+      className={`rounded-2xl border overflow-hidden p-0 shadow-soft ${
+        cardBg ? (isDarkBg ? "text-white border-white/20" : "border-border") : style.wrap
+      }`}
       aria-labelledby={`ann-${announcement.id}`}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${style.chip}`}
-        >
-          <Icon className="size-3.5" aria-hidden="true" />
-          {t(`level.${announcement.level}`)}
-        </span>
-        {announcement.expires_at ? (
-          <span className="text-xs text-muted-foreground">
-            {t("announcements.expires")}{" "}
-            {new Date(announcement.expires_at).toLocaleDateString(lang)}
+      {bannerUrl && (
+        <div className="relative w-full overflow-hidden border-b border-border/40 bg-muted/20">
+          <img
+            src={bannerUrl}
+            alt={title}
+            className="w-full h-auto max-h-[600px] object-cover transition-transform duration-300 hover:scale-[1.02] rounded-t-2xl"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      )}
+
+      <div className="p-5 sm:p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
+              isDarkBg ? "bg-white/20 text-white" : style.chip
+            }`}
+          >
+            <Icon className="size-3.5" aria-hidden="true" />
+            {t(`level.${announcement.level}`)}
           </span>
+          {announcement.expires_at ? (
+            <span className={`text-xs ${isDarkBg ? "text-slate-200" : "text-muted-foreground"}`}>
+              {t("announcements.expires")}{" "}
+              {new Date(announcement.expires_at).toLocaleDateString(lang)}
+            </span>
+          ) : null}
+        </div>
+        <h3
+          id={`ann-${announcement.id}`}
+          className={`mt-3 text-xl font-bold sm:text-2xl ${
+            isDarkBg ? "text-white" : "text-foreground"
+          }`}
+        >
+          {title}
+        </h3>
+        <p
+          className={`mt-2 text-base leading-relaxed ${
+            isDarkBg ? "text-slate-200" : "text-muted-foreground"
+          }`}
+        >
+          {message}
+        </p>
+        {announcement.link_url ? (
+          <a
+            href={announcement.link_url}
+            className={`mt-4 inline-flex min-h-11 items-center gap-1.5 font-semibold underline underline-offset-4 ${
+              isDarkBg ? "text-sky-300 hover:text-white" : "text-primary"
+            }`}
+          >
+            {t("common.readMore")}
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </a>
         ) : null}
       </div>
-      <h3 id={`ann-${announcement.id}`} className="mt-3 text-xl font-bold sm:text-2xl">
-        {title}
-      </h3>
-      <p className="mt-2 text-base text-muted-foreground">{message}</p>
-      {announcement.link_url ? (
-        <a
-          href={announcement.link_url}
-          className="mt-4 inline-flex min-h-11 items-center gap-1.5 font-semibold text-primary underline underline-offset-4"
-        >
-          {t("common.readMore")}
-          <ArrowRight className="size-4" aria-hidden="true" />
-        </a>
-      ) : null}
     </article>
   );
 }

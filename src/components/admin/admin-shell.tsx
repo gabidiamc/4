@@ -35,6 +35,7 @@ import {
   HelpCircle,
   ExternalLink,
   ListTodo,
+  Check,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -42,10 +43,29 @@ import { toast } from "sonner";
 import { SiteLogo } from "@/components/site-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatRoleLabel, signOutStaff, type AppRole } from "@/lib/admin";
 import { useSchool, type SchoolScope } from "@/lib/school";
 import { applyChangesNow } from "@/lib/sync";
 import { AdminCommandPalette } from "./admin-command-palette";
+
+const ADMIN_SCHOOL_OPTIONS = [
+  {
+    id: "all",
+    name: "Todas las escuelas (Distrito completo)",
+    short: "Distrito completo",
+    icon: "🌐",
+  },
+  { id: "lincoln", name: "Abraham Lincoln High School", short: "Lincoln High", icon: "🦁" },
+  { id: "east", name: "Des Moines East High School", short: "East High", icon: "🌹" },
+];
 
 interface NavItem {
   to: string;
@@ -192,6 +212,65 @@ export function AdminShell({
           </button>
         </div>
 
+        {/* School Scope Selector in Sidebar */}
+        <div className="p-3 border-b border-border/60 bg-muted/10">
+          <label className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1.5 px-1">
+            Escuela Activa:
+          </label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-xs font-bold text-foreground transition-all cursor-pointer shadow-2xs"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <span className="text-base">
+                    {ADMIN_SCHOOL_OPTIONS.find((s) => s.id === adminSchoolFilter)?.icon || "🏫"}
+                  </span>
+                  <span className="truncate">
+                    {ADMIN_SCHOOL_OPTIONS.find((s) => s.id === adminSchoolFilter)?.short ||
+                      "Todas las escuelas"}
+                  </span>
+                </div>
+                <ChevronDown className="size-3.5 text-primary shrink-0" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="w-64 rounded-xl p-1.5 shadow-xl border-border bg-popover z-50"
+            >
+              <DropdownMenuLabel className="text-xs font-bold text-muted-foreground px-2 py-1">
+                Cambiar escuela activa
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {ADMIN_SCHOOL_OPTIONS.map((school) => {
+                const isSelected = adminSchoolFilter === school.id;
+                return (
+                  <DropdownMenuItem
+                    key={school.id}
+                    onClick={() => {
+                      setAdminSchoolFilter(school.id);
+                      void queryClient.invalidateQueries();
+                      toast.info(`Cambiando administración a: ${school.short}`);
+                    }}
+                    className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium cursor-pointer transition-colors ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground font-bold"
+                        : "hover:bg-muted text-foreground"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span>{school.icon}</span>
+                      <span className="truncate">{school.name}</span>
+                    </div>
+                    {isSelected && <Check className="size-3.5 shrink-0" />}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
         {/* Global Search Trigger inside Sidebar */}
         <div className="p-3 border-b border-border/60">
           <button
@@ -313,18 +392,62 @@ export function AdminShell({
               </kbd>
             </button>
 
-            {/* School Scope Switcher */}
-            <div className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-semibold shadow-2xs">
-              <School className="size-4 text-primary" />
-              <div className="flex flex-col text-start">
-                <span className="text-[10px] text-muted-foreground uppercase font-black tracking-wider leading-none">
-                  Administrando Escuela:
-                </span>
-                <span className="text-xs font-bold text-foreground leading-tight">
-                  Abraham Lincoln High School
-                </span>
-              </div>
-            </div>
+            {/* School Scope Switcher in Header */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 px-3 py-1.5 text-xs font-semibold shadow-2xs cursor-pointer transition-all"
+                >
+                  <span className="text-base">
+                    {ADMIN_SCHOOL_OPTIONS.find((s) => s.id === adminSchoolFilter)?.icon || "🏫"}
+                  </span>
+                  <div className="flex flex-col text-start">
+                    <span className="text-[9px] text-muted-foreground uppercase font-black tracking-wider leading-none">
+                      Escuela Activa
+                    </span>
+                    <span className="text-xs font-bold text-foreground leading-tight">
+                      {ADMIN_SCHOOL_OPTIONS.find((s) => s.id === adminSchoolFilter)?.short ||
+                        "Todas las escuelas"}
+                    </span>
+                  </div>
+                  <ChevronDown className="size-3.5 text-primary ml-1 shrink-0" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="w-68 rounded-xl p-1.5 shadow-xl border-border bg-popover z-50"
+              >
+                <DropdownMenuLabel className="text-xs font-bold text-muted-foreground px-2 py-1">
+                  Filtrar panel por escuela
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {ADMIN_SCHOOL_OPTIONS.map((school) => {
+                  const isSelected = adminSchoolFilter === school.id;
+                  return (
+                    <DropdownMenuItem
+                      key={school.id}
+                      onClick={() => {
+                        setAdminSchoolFilter(school.id);
+                        void queryClient.invalidateQueries();
+                        toast.info(`Cambiando administración a: ${school.short}`);
+                      }}
+                      className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium cursor-pointer transition-colors ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground font-bold"
+                          : "hover:bg-muted text-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span>{school.icon}</span>
+                        <span className="truncate">{school.name}</span>
+                      </div>
+                      {isSelected && <Check className="size-3.5 shrink-0" />}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Right Header Actions */}

@@ -28,6 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { FileUploadInput } from "@/components/file-upload-input";
 
 const PRESET_TEXT_COLORS = [
   { name: "Por defecto", hex: "inherit" },
@@ -70,13 +71,30 @@ export function VisualRichEditor({
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkText, setLinkText] = useState("");
+  const savedSelectionRef = useRef<Range | null>(null);
+
+  const saveSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedSelectionRef.current = sel.getRangeAt(0).cloneRange();
+    }
+  };
+
+  const restoreSelection = () => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    const sel = window.getSelection();
+    if (sel && savedSelectionRef.current) {
+      sel.removeAllRanges();
+      sel.addRange(savedSelectionRef.current);
+    }
+  };
 
   // Sync value to editor DOM when value changes externally
   useEffect(() => {
     if (editorRef.current) {
       const currentHtml = editorRef.current.innerHTML;
       if (value !== currentHtml) {
-        // If empty value, set placeholder break
         editorRef.current.innerHTML = value || "";
       }
     }
@@ -86,6 +104,50 @@ export function VisualRichEditor({
     if (editorRef.current) {
       onChange(editorRef.current.innerHTML);
     }
+  };
+
+  const insertHtmlAtSelection = (html: string) => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    restoreSelection();
+
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      // Make sure the range is inside editorRef
+      if (editorRef.current.contains(range.commonAncestorContainer)) {
+        range.deleteContents();
+        const el = document.createElement("div");
+        el.innerHTML = html;
+        const frag = document.createDocumentFragment();
+        let node: ChildNode | null;
+        let lastNode: ChildNode | null = null;
+        while ((node = el.firstChild)) {
+          lastNode = frag.appendChild(node);
+        }
+        range.insertNode(frag);
+        if (lastNode) {
+          const newRange = document.createRange();
+          newRange.setStartAfter(lastNode);
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        }
+        handleInput();
+        return;
+      }
+    }
+
+    // Fallback: append to editor or execCommand
+    try {
+      const success = document.execCommand("insertHTML", false, html);
+      if (!success) {
+        editorRef.current.innerHTML += html;
+      }
+    } catch {
+      editorRef.current.innerHTML += html;
+    }
+    handleInput();
   };
 
   const exec = (command: string, value: string | undefined = undefined) => {
@@ -110,23 +172,17 @@ export function VisualRichEditor({
   };
 
   const insertCallout = () => {
-    if (!editorRef.current) return;
-    editorRef.current.focus();
-
     const calloutHtml = `
       <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 1rem 1.25rem; border-radius: 0.75rem; margin: 1rem 0; color: #1e3a8a; font-weight: 500;">
         💡 <strong>Nota importante:</strong> Escribe aquí el aviso o información destacada...
       </div>
       <p><br></p>
     `;
-    document.execCommand("insertHTML", false, calloutHtml);
-    handleInput();
+    insertHtmlAtSelection(calloutHtml);
   };
 
   const handleInsertImage = () => {
     if (!imageUrl.trim()) return;
-    if (!editorRef.current) return;
-    editorRef.current.focus();
 
     const captionHtml = imageCaption.trim()
       ? `<figcaption style="text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.375rem;">${imageCaption.trim()}</figcaption>`
@@ -134,30 +190,26 @@ export function VisualRichEditor({
 
     const imgHtml = `
       <figure style="margin: 1.25rem 0; text-align: center;">
-        <img src="${imageUrl.trim()}" alt="${imageCaption.trim()}" style="max-width: 100%; height: auto; border-radius: 1rem; border: 1px solid rgba(0,0,0,0.1); display: inline-block; shadow: 0 2px 8px rgba(0,0,0,0.05);" />
+        <img src="${imageUrl.trim()}" alt="${imageCaption.trim()}" style="max-width: 100%; height: auto; border-radius: 1rem; border: 1px solid rgba(0,0,0,0.1); display: inline-block; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" />
         ${captionHtml}
       </figure>
       <p><br></p>
     `;
-    document.execCommand("insertHTML", false, imgHtml);
+    insertHtmlAtSelection(imgHtml);
     setImageUrl("");
     setImageCaption("");
     setImageDialogOpen(false);
-    handleInput();
   };
 
   const handleInsertLink = () => {
     if (!linkUrl.trim()) return;
-    if (!editorRef.current) return;
-    editorRef.current.focus();
 
     const text = linkText.trim() || linkUrl.trim();
     const linkHtml = `<a href="${linkUrl.trim()}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; font-weight: 600; text-decoration: underline;">${text}</a>`;
-    document.execCommand("insertHTML", false, linkHtml);
+    insertHtmlAtSelection(linkHtml);
     setLinkUrl("");
     setLinkText("");
     setLinkDialogOpen(false);
-    handleInput();
   };
 
   return (
@@ -368,7 +420,10 @@ export function VisualRichEditor({
           type="button"
           variant="ghost"
           className="h-9 gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-primary hover:bg-background"
-          onClick={() => setImageDialogOpen(true)}
+          onClick={() => {
+            saveSelection();
+            setImageDialogOpen(true);
+          }}
         >
           <ImageIcon className="size-4" />
           <span>Imagen</span>
@@ -378,7 +433,10 @@ export function VisualRichEditor({
           type="button"
           variant="ghost"
           className="h-9 gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-primary hover:bg-background"
-          onClick={() => setLinkDialogOpen(true)}
+          onClick={() => {
+            saveSelection();
+            setLinkDialogOpen(true);
+          }}
         >
           <LinkIcon className="size-4" />
           <span>Enlace</span>
@@ -400,18 +458,15 @@ export function VisualRichEditor({
           <DialogHeader>
             <DialogTitle>Insertar Imagen en el artículo</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <label className="text-xs font-bold text-muted-foreground">
-                Dirección URL de la imagen
-              </label>
-              <Input
-                placeholder="https://ejemplo.com/imagen.jpg"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="mt-1 min-h-11 rounded-xl"
-              />
-            </div>
+          <div className="space-y-4 py-2">
+            <FileUploadInput
+              value={imageUrl}
+              onChange={setImageUrl}
+              label="Imagen para insertar"
+              helperText="Selecciona un archivo (PNG, JPG, WEBP, etc.) o pega el enlace"
+              placeholder="https://... o selecciona archivo"
+              accept="image/*"
+            />
             <div>
               <label className="text-xs font-bold text-muted-foreground">
                 Pie de foto / Leyenda (Opcional)

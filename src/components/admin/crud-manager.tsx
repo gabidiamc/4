@@ -18,8 +18,12 @@ const SCHOOL_FIELD: Field = {
   name: "school_id",
   label: "Escuela obligatoria (school_id)",
   type: "select",
-  options: [{ value: "lincoln", label: "Abraham Lincoln High School (Lincoln)" }],
-  help: "Cada registro debe pertenecer obligatoriamente a una escuela.",
+  options: [
+    { value: "all", label: "Todas las escuelas (Distrito completo)" },
+    { value: "lincoln", label: "Abraham Lincoln High School (Lincoln)" },
+    { value: "east", label: "Des Moines East High School (East)" },
+  ],
+  help: "Selecciona si el contenido es específico de una escuela o aplica para todo el distrito.",
 };
 
 const TABLES_WITH_SCHOOL_FIELD = new Set([
@@ -338,6 +342,8 @@ const KNOWN_LABELS: Record<string, string> = {
   north: "North High",
   "sch-hoover": "Hoover High",
   hoover: "Hoover High",
+  "sch-central": "Central Campus",
+  central: "Central Campus",
   all: "Todas (Distrito)",
   district: "Todas (Distrito)",
 };

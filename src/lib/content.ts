@@ -49,6 +49,8 @@ export type CategoryRow = {
   name: string;
   description: string | null;
   icon: string;
+  card_banner_url?: string | null;
+  card_bg?: string | null;
   display_order: number;
   is_featured: boolean;
   is_visible: boolean;
@@ -108,6 +110,8 @@ export type ArticleRow = {
   published_at: string | null;
   updated_at: string;
   featured_image_url: string | null;
+  card_banner_url?: string | null;
+  card_bg?: string | null;
   article_translations: {
     language_code: string;
     title: string;
@@ -118,7 +122,7 @@ export type ArticleRow = {
 };
 
 const ARTICLE_SELECT =
-  "id, slug, status, category_id, school_id, is_featured, published_at, updated_at, featured_image_url, article_translations(language_code, title, summary, content_blocks), categories(slug, name)";
+  "id, slug, status, category_id, school_id, is_featured, published_at, updated_at, featured_image_url, card_banner_url, card_bg, article_translations(language_code, title, summary, content_blocks), categories(slug, name)";
 
 export async function fetchPublishedArticles(
   categoryId?: string,
@@ -227,11 +231,14 @@ export async function fetchArticleBySlug(slug: string): Promise<ArticleRow | nul
 
 export function adaptSchoolText(text: string, schoolId?: string): string {
   if (!text) return text;
-  const currentSchool =
+  const currentSchool = (
     schoolId ||
     (typeof window !== "undefined"
-      ? localStorage.getItem("dmps_selected_school_v2") || "lincoln"
-      : "lincoln");
+      ? localStorage.getItem("dmps_selected_school") ||
+        localStorage.getItem("dmps_selected_school_v2") ||
+        "lincoln"
+      : "lincoln")
+  ).toLowerCase();
 
   if (currentSchool === "east") {
     return text
@@ -245,18 +252,102 @@ export function adaptSchoolText(text: string, schoolId?: string): string {
       .replace(/Lincoln Main Campus/g, "East High Main Campus")
       .replace(/Railsplitters/g, "Scarlets")
       .replace(/Railsplitter/g, "Scarlet")
+      .replace(/Rails Closet/g, "Scarlet Closet")
       .replace(/Rails/g, "Scarlets")
       .replace(/2600 SW 9th St, Des Moines, IA 50315/g, "815 E 13th St, Des Moines, IA 50316")
-      .replace(/lincoln\.bfl\.espanol@dmschools\.org/g, "rosario.jimenez@dmpschools.org")
+      .replace(/lincoln\.bfl\.espanol@dmschools\.org/g, "east.bfl@dmschools.org")
+      .replace(/lincoln\.dmschools\.org/g, "east.dmschools.org")
       .replace(/lincolnhigh\.dmschools\.org/g, "easthigh.dmschools.org")
       .replace(/515-242-7500/g, "515-242-7788")
-      .replace(/515-242-7504/g, "515-242-7789")
-      .replace(/515-242-7508/g, "515-242-7790")
-      .replace(/515-242-7510/g, "515-242-7792")
-      .replace(/515-242-7515/g, "515-242-7795")
-      .replace(/515-242-7520/g, "515-242-7798")
-      .replace(/515-242-7300/g, "515-380-1830")
+      .replace(/515-242-7300/g, "515-242-7790")
       .replace(/\bLincoln\b/g, "East High");
+  }
+
+  if (currentSchool === "roosevelt") {
+    return text
+      .replace(/Abraham Lincoln High School/g, "Theodore Roosevelt High School")
+      .replace(/Lincoln High School/g, "Roosevelt High School")
+      .replace(/Lincoln High/g, "Roosevelt High")
+      .replace(/Escuela Lincoln/g, "Escuela Roosevelt High")
+      .replace(/Lincoln Students/g, "Roosevelt Students")
+      .replace(/estudiantes de Lincoln/g, "estudiantes de Roosevelt High")
+      .replace(/alumnos de Lincoln/g, "alumnos de Roosevelt High")
+      .replace(/Lincoln Main Campus/g, "Roosevelt Main Campus")
+      .replace(/Railsplitters/g, "Roughriders")
+      .replace(/Railsplitter/g, "Roughrider")
+      .replace(/Rails Closet/g, "Rider Closet")
+      .replace(/Rails/g, "Roughriders")
+      .replace(/2600 SW 9th St, Des Moines, IA 50315/g, "4419 Center St, Des Moines, IA 50312")
+      .replace(/lincoln\.bfl\.espanol@dmschools\.org/g, "roosevelt.bfl@dmschools.org")
+      .replace(/lincoln\.dmschools\.org/g, "roosevelt.dmschools.org")
+      .replace(/515-242-7500/g, "515-242-7272")
+      .replace(/515-242-7300/g, "515-242-7275")
+      .replace(/\bLincoln\b/g, "Roosevelt High");
+  }
+
+  if (currentSchool === "north") {
+    return text
+      .replace(/Abraham Lincoln High School/g, "North High School")
+      .replace(/Lincoln High School/g, "North High School")
+      .replace(/Lincoln High/g, "North High")
+      .replace(/Escuela Lincoln/g, "Escuela North High")
+      .replace(/Lincoln Students/g, "North High Students")
+      .replace(/estudiantes de Lincoln/g, "estudiantes de North High")
+      .replace(/alumnos de Lincoln/g, "alumnos de North High")
+      .replace(/Lincoln Main Campus/g, "North High Main Campus")
+      .replace(/Railsplitters/g, "Polar Bears")
+      .replace(/Railsplitter/g, "Polar Bear")
+      .replace(/Rails Closet/g, "Polar Bear Closet")
+      .replace(/Rails/g, "Polar Bears")
+      .replace(/2600 SW 9th St, Des Moines, IA 50315/g, "501 Holcomb Ave, Des Moines, IA 50313")
+      .replace(/lincoln\.bfl\.espanol@dmschools\.org/g, "north.bfl@dmschools.org")
+      .replace(/lincoln\.dmschools\.org/g, "north.dmschools.org")
+      .replace(/515-242-7500/g, "515-242-7200")
+      .replace(/515-242-7300/g, "515-242-7205")
+      .replace(/\bLincoln\b/g, "North High");
+  }
+
+  if (currentSchool === "hoover") {
+    return text
+      .replace(/Abraham Lincoln High School/g, "Herbert Hoover High School")
+      .replace(/Lincoln High School/g, "Hoover High School")
+      .replace(/Lincoln High/g, "Hoover High")
+      .replace(/Escuela Lincoln/g, "Escuela Hoover High")
+      .replace(/Lincoln Students/g, "Hoover High Students")
+      .replace(/estudiantes de Lincoln/g, "estudiantes de Hoover High")
+      .replace(/alumnos de Lincoln/g, "alumnos de Hoover High")
+      .replace(/Lincoln Main Campus/g, "Hoover Main Campus")
+      .replace(/Railsplitters/g, "Huskies")
+      .replace(/Railsplitter/g, "Husky")
+      .replace(/Rails Closet/g, "Husky Closet")
+      .replace(/Rails/g, "Huskies")
+      .replace(/2600 SW 9th St, Des Moines, IA 50315/g, "4800 Aurora Ave, Des Moines, IA 50310")
+      .replace(/lincoln\.bfl\.espanol@dmschools\.org/g, "hoover.bfl@dmschools.org")
+      .replace(/lincoln\.dmschools\.org/g, "hoover.dmschools.org")
+      .replace(/515-242-7500/g, "515-242-7300")
+      .replace(/515-242-7300/g, "515-242-7305")
+      .replace(/\bLincoln\b/g, "Hoover High");
+  }
+
+  if (currentSchool === "central") {
+    return text
+      .replace(/Abraham Lincoln High School/g, "Central Campus & Central Academy")
+      .replace(/Lincoln High School/g, "Central Campus")
+      .replace(/Lincoln High/g, "Central Campus")
+      .replace(/Escuela Lincoln/g, "Central Campus")
+      .replace(/Lincoln Students/g, "Central Campus Students")
+      .replace(/estudiantes de Lincoln/g, "estudiantes de Central Campus")
+      .replace(/alumnos de Lincoln/g, "alumnos de Central Campus")
+      .replace(/Lincoln Main Campus/g, "Central Campus")
+      .replace(/Railsplitters/g, "Trailblazers")
+      .replace(/Railsplitter/g, "Trailblazer")
+      .replace(/Rails Closet/g, "Central Closet")
+      .replace(/Rails/g, "Trailblazers")
+      .replace(/2600 SW 9th St, Des Moines, IA 50315/g, "1800 Grand Ave, Des Moines, IA 50309")
+      .replace(/lincoln\.bfl\.espanol@dmschools\.org/g, "central.bfl@dmschools.org")
+      .replace(/lincoln\.dmschools\.org/g, "centralcampus.dmschools.org")
+      .replace(/515-242-7500/g, "515-242-7888")
+      .replace(/\bLincoln\b/g, "Central Campus");
   }
 
   return text;
@@ -306,6 +397,8 @@ export type AnnouncementRow = {
   show_on_home: boolean;
   school_id?: string | null;
   timezone?: string | null;
+  card_banner_url?: string | null;
+  card_bg?: string | null;
   announcement_translations: { language_code: string; title: string; message: string }[];
 };
 

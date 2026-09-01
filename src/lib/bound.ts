@@ -26,6 +26,8 @@ export interface BoundActivity {
   official_url: string;
   registration_url: string | null;
   icon_url: string | null;
+  card_banner_url?: string | null;
+  card_bg?: string | null;
   season: "Fall" | "Winter" | "Spring" | "Summer" | "Year-Round";
   status: BoundStatus;
   is_active: boolean;
@@ -194,6 +196,8 @@ function toBoundActivity(row: ActivityDbRow): BoundActivity {
     official_url: row.official_url ?? "",
     registration_url: row.forms_url ?? null,
     icon_url: row.image_url ?? null,
+    card_banner_url: row.image_url ?? null,
+    card_bg: null,
     season: (row.season ?? "Year-Round") as BoundActivity["season"],
     status: (row.registration_info ??
       (row.enrollment_open ? "Registro abierto" : "Registro cerrado")) as BoundStatus,
@@ -220,7 +224,7 @@ function toActivityDbRow(a: BoundActivity, schoolId: string) {
     enrollment_open: a.status === "Registro abierto",
     official_url: a.official_url || null,
     forms_url: a.registration_url,
-    image_url: a.icon_url,
+    image_url: a.card_banner_url || a.icon_url || null,
     description: a.translated_name,
     registration_info: a.status,
     status: (a.is_active ? "published" : "draft") as "published" | "draft",

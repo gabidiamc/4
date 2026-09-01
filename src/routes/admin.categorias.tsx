@@ -19,7 +19,7 @@ export const Route = createFileRoute("/admin/categorias")({
       defaults={{
         name: "",
         slug: "",
-        school_id: "lincoln",
+        school_id: "all",
         description: "",
         icon: "BookOpen",
         display_order: 0,
@@ -29,24 +29,27 @@ export const Route = createFileRoute("/admin/categorias")({
       fields={[
         { name: "name", label: "Nombre", required: true },
         { name: "slug", label: "Slug (dirección web)", required: true },
+        {
+          name: "school_id",
+          label: "Escuela",
+          type: "select",
+          options: [
+            { value: "all", label: "Todas las escuelas (Distrito completo)" },
+            { value: "lincoln", label: "Abraham Lincoln High School (Lincoln)" },
+            { value: "east", label: "Des Moines East High School (East)" },
+          ],
+          help: "Determina si esta categoría está disponible en una escuela específica o para todo el distrito.",
+        },
         { name: "description", label: "Descripción corta", type: "textarea" },
         {
           name: "icon",
           label: "Icono (nombre de Lucide)",
-          help: "Ej.: BookOpen, GraduationCap, Bus, Utensils, HeartPulse",
+          help: "Ej.: BookOpen, GraduationCap, Bus, Utensils, HeartPulse, Trophy, Sparkles, HelpCircle",
         },
         { name: "display_order", label: "Orden", type: "number" },
         { name: "is_visible", label: "Visible en el sitio", type: "checkbox" },
         { name: "is_featured", label: "Destacada en la portada", type: "checkbox" },
       ]}
-      translations={{
-        table: "category_translations",
-        fkColumn: "category_id",
-        fields: [
-          { name: "name", label: "Nombre", required: true },
-          { name: "description", label: "Descripción", type: "textarea" },
-        ],
-      }}
     />
   ),
 });

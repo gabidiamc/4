@@ -17,7 +17,7 @@ import {
   Calendar as CalendarIcon,
   FileText,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 import calendarImage from "@/assets/dmps-calendar-2026-2027.jpg.asset.json";
 import calendarPdf from "@/assets/dmps-calendar-2026-2027.pdf.asset.json";
@@ -273,23 +273,67 @@ function CalendarPage() {
           </div>
 
           <div className="surface-card overflow-hidden p-2 sm:p-4 rounded-2xl border border-border shadow-soft bg-card">
-            <a
-              href={effectiveImageUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Clic para ampliar"
-            >
+            {effectiveImageUrl ? (
+              <a
+                href={effectiveImageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Clic para ampliar"
+              >
+                <img
+                  src={effectiveImageUrl}
+                  alt={
+                    customSettings.title ||
+                    "Calendario escolar oficial de Des Moines Public Schools"
+                  }
+                  className="w-full rounded-xl object-contain max-h-[1200px] mx-auto hover:opacity-95 transition"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = calendarImage.url;
+                  }}
+                />
+              </a>
+            ) : effectivePdfUrl ? (
+              <div className="space-y-4 p-4 text-center">
+                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
+                  <FileText className="size-16 text-primary mx-auto mb-3" />
+                  <h3 className="text-xl font-bold text-foreground">
+                    {customSettings.title || "Calendario Escolar en PDF"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                    {customSettings.subtitle ||
+                      "Consulta y descarga el documento oficial de fechas del distrito escolar."}
+                  </p>
+                  <div className="mt-5 flex justify-center gap-3">
+                    <Button asChild size="lg" className="rounded-xl font-bold shadow-soft">
+                      <a
+                        href={effectivePdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download="Calendario-Escolar.pdf"
+                      >
+                        <Download className="mr-2 size-5" />
+                        {isSpanish ? "Descargar PDF" : "Download PDF"}
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+                {effectivePdfUrl.startsWith("data:") && (
+                  <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden border border-border">
+                    <iframe
+                      src={effectivePdfUrl}
+                      title="Calendario Escolar PDF"
+                      className="h-full w-full"
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
               <img
-                src={effectiveImageUrl}
-                alt={
-                  customSettings.title || "Calendario escolar oficial de Des Moines Public Schools"
-                }
-                className="w-full rounded-xl object-contain max-h-[1200px] mx-auto hover:opacity-95 transition"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = calendarImage.url;
-                }}
+                src={calendarImage.url}
+                alt="Calendario escolar oficial"
+                className="w-full rounded-xl object-contain max-h-[1200px] mx-auto"
               />
-            </a>
+            )}
           </div>
 
           <div className="mt-6">

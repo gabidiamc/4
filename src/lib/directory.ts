@@ -133,6 +133,8 @@ export type ProgramRow = {
   requirements: string | null;
   application_process: string | null;
   image_url: string | null;
+  card_banner_url?: string | null;
+  card_bg?: string | null;
   video_url: string | null;
   official_url: string | null;
   contact_id: string | null;

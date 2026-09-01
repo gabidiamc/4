@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { CategoryRow, ArticleRow } from "./content";
 import type { ResourceRow } from "./resources";
 

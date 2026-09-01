@@ -169,22 +169,63 @@ function Index() {
               ))
             : categoriesList.map((cat) => {
                 const loc = localizedCategory(cat, lang);
+                const bannerUrl = cat.card_banner_url || null;
+                const cardBg = cat.card_bg?.trim() || null;
+                const isDarkBg =
+                  cardBg &&
+                  (cardBg.includes("#0") ||
+                    cardBg.includes("#1") ||
+                    cardBg.includes("0f172a") ||
+                    cardBg.includes("e11d48"));
+
                 return (
                   <li key={cat.id}>
                     <Link
                       to="/topics/$slug"
                       params={{ slug: cat.slug }}
-                      className="surface-card group flex h-full flex-col gap-3 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lift"
+                      style={cardBg ? { background: cardBg } : undefined}
+                      className={`surface-card group flex h-full flex-col justify-between overflow-hidden p-0 rounded-2xl transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lift ${
+                        isDarkBg ? "text-white border-white/20" : ""
+                      }`}
                     >
-                      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                        <CategoryIcon name={cat.icon} className="size-5" />
-                      </span>
-                      <span className="text-base font-bold transition-colors group-hover:text-primary">
-                        {loc.name}
-                      </span>
-                      <span className="text-xs leading-snug text-muted-foreground line-clamp-2">
-                        {loc.description}
-                      </span>
+                      {bannerUrl && (
+                        <div className="relative w-full overflow-hidden border-b border-border/50 bg-muted/20">
+                          <img
+                            src={bannerUrl}
+                            alt={loc.name}
+                            className="w-full h-auto max-h-[600px] object-cover transition-transform duration-300 group-hover:scale-[1.02] rounded-t-2xl"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      )}
+                      <div className="flex flex-1 flex-col gap-2 p-5">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={`grid size-9 shrink-0 place-items-center rounded-lg transition-colors ${
+                              isDarkBg
+                                ? "bg-white/20 text-white"
+                                : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground"
+                            }`}
+                          >
+                            <CategoryIcon name={cat.icon} className="size-4" />
+                          </span>
+                          <span
+                            className={`text-base font-bold transition-colors truncate ${
+                              isDarkBg ? "text-white" : "group-hover:text-primary"
+                            }`}
+                          >
+                            {loc.name}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-xs leading-snug line-clamp-2 ${
+                            isDarkBg ? "text-slate-200" : "text-muted-foreground"
+                          }`}
+                        >
+                          {loc.description}
+                        </span>
+                      </div>
                     </Link>
                   </li>
                 );

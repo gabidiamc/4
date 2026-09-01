@@ -157,50 +157,108 @@ function ProgramsPage() {
           <ul className="mt-6 grid gap-5 md:grid-cols-2">
             {filtered.map((p) => {
               const loc = localizedProgram(p, lang);
+              const bannerSrc = p.card_banner_url || p.image_url;
+              const cardBg = p.card_bg?.trim() || null;
+              const isDarkBg =
+                cardBg &&
+                (cardBg.includes("#0") ||
+                  cardBg.includes("#1") ||
+                  cardBg.includes("0f172a") ||
+                  cardBg.includes("e11d48"));
+
               return (
                 <li
                   key={p.id}
                   onClick={() => setSelectedProgram(p)}
-                  className="surface-card flex h-full flex-col justify-between p-5 rounded-2xl border transition-all hover:border-primary/50 hover:shadow-lift cursor-pointer group"
+                  style={cardBg ? { background: cardBg } : undefined}
+                  className={`surface-card flex h-full flex-col justify-between overflow-hidden p-0 rounded-2xl border transition-all hover:border-primary/50 hover:shadow-lift cursor-pointer group ${
+                    isDarkBg ? "text-white border-white/20" : ""
+                  }`}
                 >
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold uppercase text-primary">
-                        {p.program_type}
-                      </span>
-                      {p.is_free ? (
-                        <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-bold uppercase text-emerald-700 dark:text-emerald-300">
-                          {t("programs.free")}
+                  {bannerSrc && (
+                    <div className="relative w-full overflow-hidden border-b border-border/50 bg-muted/20">
+                      <img
+                        src={bannerSrc}
+                        alt={loc.name}
+                        className="w-full h-auto max-h-[600px] object-cover transition-transform duration-300 group-hover:scale-[1.02] rounded-t-2xl"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex flex-1 flex-col justify-between p-5">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                            isDarkBg ? "bg-white/20 text-white" : "bg-primary-soft text-primary"
+                          }`}
+                        >
+                          {p.program_type}
                         </span>
+                        {p.is_free ? (
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                              isDarkBg
+                                ? "bg-emerald-500/30 text-emerald-200 border border-emerald-400/40"
+                                : "bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                            }`}
+                          >
+                            {t("programs.free")}
+                          </span>
+                        ) : null}
+                        {p.enrollment_open ? (
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                              isDarkBg
+                                ? "bg-amber-500/30 text-amber-200 border border-amber-400/40"
+                                : "bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300"
+                            }`}
+                          >
+                            {t("programs.open")}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <h2
+                        className={`text-xl font-bold transition-colors leading-snug ${
+                          isDarkBg ? "text-white" : "group-hover:text-primary"
+                        }`}
+                      >
+                        {loc.name}
+                      </h2>
+
+                      {loc.summary ? (
+                        <p
+                          className={`text-sm leading-relaxed line-clamp-3 ${
+                            isDarkBg ? "text-slate-200" : "text-muted-foreground"
+                          }`}
+                        >
+                          {loc.summary}
+                        </p>
                       ) : null}
-                      {p.enrollment_open ? (
-                        <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-1 text-xs font-bold uppercase text-amber-800 dark:text-amber-300">
-                          {t("programs.open")}
-                        </span>
+
+                      {p.school_level ? (
+                        <p
+                          className={`text-xs font-semibold flex items-center gap-1.5 pt-1 ${
+                            isDarkBg ? "text-sky-300" : "text-primary"
+                          }`}
+                        >
+                          <School className="size-3.5" />
+                          {p.school_level} {p.grades ? `· ${p.grades}` : ""}
+                        </p>
                       ) : null}
                     </div>
 
-                    <h2 className="text-xl font-bold group-hover:text-primary transition-colors leading-snug">
-                      {loc.name}
-                    </h2>
-
-                    {loc.summary ? (
-                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
-                        {loc.summary}
-                      </p>
-                    ) : null}
-
-                    {p.school_level ? (
-                      <p className="text-xs font-semibold text-primary flex items-center gap-1.5 pt-1">
-                        <School className="size-3.5" />
-                        {p.school_level} {p.grades ? `· ${p.grades}` : ""}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-bold text-primary">
-                    <span>{t("programs.viewDetailsHowToJoin")}</span>
-                    <ExternalLink className="size-4 transition-transform group-hover:translate-x-1" />
+                    <div
+                      className={`mt-5 pt-3 border-t flex items-center justify-between text-xs font-bold ${
+                        isDarkBg ? "border-white/20 text-white" : "border-border/60 text-primary"
+                      }`}
+                    >
+                      <span>{t("programs.viewDetailsHowToJoin")}</span>
+                      <ExternalLink className="size-4 transition-transform group-hover:translate-x-1" />
+                    </div>
                   </div>
                 </li>
               );

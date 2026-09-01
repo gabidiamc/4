@@ -37,6 +37,7 @@ import {
   ConfirmActionDialog,
   type ConfirmActionConfig,
 } from "@/components/admin/confirm-action-dialog";
+import { FileUploadInput } from "@/components/file-upload-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -381,7 +382,7 @@ function ArticlesAdmin() {
                           ? "Lincoln"
                           : rowSchool.includes("east")
                             ? "East"
-                            : "Distrito"}
+                            : "Distrito (Ambas)"}
                       </span>
                     </td>
 
@@ -604,6 +605,8 @@ function ArticleStepEditorModal({
   const [featuredImage, setFeaturedImage] = useState(
     String(editingRow["featured_image_url"] || ""),
   );
+  const [cardBanner, setCardBanner] = useState(String(editingRow["card_banner_url"] || ""));
+  const [cardBg, setCardBg] = useState(String(editingRow["card_bg"] || ""));
   const [imageAlt, setImageAlt] = useState(String(editingRow["image_alt"] || ""));
   const [isFeatured, setIsFeatured] = useState(Boolean(editingRow["is_featured"]));
 
@@ -714,8 +717,8 @@ function ArticleStepEditorModal({
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]+/g, "-") ||
-        `articulo-${Date.now()}`;
+          .replace(/[^a-z0-9]+/g, "") ||
+        `articulo${Date.now()}`;
 
       const articleData = {
         id: articleId || `art_${Date.now()}`,
@@ -727,6 +730,8 @@ function ArticleStepEditorModal({
         status: status || "published",
         is_featured: isFeatured,
         featured_image_url: featuredImage.trim() || null,
+        card_banner_url: cardBanner.trim() || null,
+        card_bg: cardBg.trim() || null,
         image_alt: imageAlt.trim() || null,
         starts_at: startsAt ? `${startsAt}T00:00:00` : null,
         ends_at: endsAt ? `${endsAt}T23:59:59` : null,
@@ -797,15 +802,15 @@ function ArticleStepEditorModal({
   };
 
   const steps = [
-    { num: 1, label: "1. Datos Básicos" },
-    { num: 2, label: "2. Contenido" },
-    { num: 3, label: "3. Fechas y Fuente" },
-    { num: 4, label: "4. Publicación" },
+    { num: 1, label: "1. Tarjeta y Portada (Todo Junto)" },
+    { num: 2, label: "2. Contenido Completo" },
+    { num: 3, label: "3. Fechas y Vigencia" },
+    { num: 4, label: "4. Publicación y Estado" },
   ];
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-h-[94dvh] overflow-y-auto sm:max-w-3xl p-0 gap-0 rounded-2xl">
+      <DialogContent className="max-h-[94dvh] overflow-y-auto sm:max-w-4xl lg:max-w-6xl p-0 gap-0 rounded-2xl">
         {/* Modal Header */}
         <div className="p-6 border-b border-border/80 bg-muted/20">
           <div className="flex items-center justify-between">
@@ -814,27 +819,13 @@ function ArticleStepEditorModal({
               <span>{articleId ? "Editar Artículo" : "Nuevo Artículo Informativo"}</span>
             </DialogTitle>
 
-            {/* Language toggle */}
-            <div className="flex items-center gap-1 bg-card border border-border p-1 rounded-xl text-xs font-bold">
-              {LANGS.map((l) => (
-                <button
-                  key={l.code}
-                  type="button"
-                  onClick={() => setLang(l.code)}
-                  className={`px-2.5 py-1 rounded-lg transition-colors ${
-                    lang === l.code
-                      ? "bg-primary text-white"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
+            <span className="text-xs font-bold text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-xl">
+              Traducción automática activa
+            </span>
           </div>
 
           {/* Step Navigator */}
-          <div className="grid grid-cols-4 gap-2 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
             {steps.map((s) => (
               <button
                 key={s.num}
@@ -856,113 +847,366 @@ function ArticleStepEditorModal({
 
         {/* Step Body Content */}
         <div className="p-6 space-y-5">
-          {/* STEP 1: Basic Info */}
+          {/* STEP 1: All-in-One Card Editor (Description, Banner with mover/rotar/escalar, Background, Categories & Real-time Live Preview) */}
           {activeStep === 1 && (
             <div className="space-y-4 animate-in fade-in">
-              <div>
-                <label className="text-sm font-bold text-foreground block">
-                  Título del artículo <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  placeholder="Ej: Guía de Inscripciones y Requisitos Escolares"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="mt-1.5 min-h-12 rounded-xl text-base font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-foreground block">
-                  Resumen breve (Subencabezado para la portada)
-                </label>
-                <Textarea
-                  placeholder="Resumen corto de 1 o 2 oraciones para las familias..."
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  className="mt-1.5 min-h-[75px] rounded-xl text-sm"
-                  rows={2}
-                />
-              </div>
-
-              {/* School Scope */}
-              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-foreground block">
-                    Escuela obligatoria (school_id)
-                  </label>
-                  <span className="font-mono text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">
-                    ID: {schoolId || "lincoln"}
-                  </span>
-                </div>
-                <select
-                  value={schoolId}
-                  onChange={(e) => setSchoolId(e.target.value)}
-                  className="w-full min-h-11 rounded-xl border border-input bg-background px-3 py-2 text-sm font-semibold text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
-                >
-                  <option value="lincoln">Abraham Lincoln High School (Lincoln)</option>
-                </select>
-                <p className="text-xs text-muted-foreground">
-                  🏫 Administrando: <strong>Abraham Lincoln High School</strong>. Cada artículo está
-                  estrictamente aislado a su escuela.
-                </p>
-              </div>
-
-              {/* Category */}
-              <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-3">
-                <label className="text-sm font-bold text-foreground block">Categoría</label>
-                {!isCreatingNewCategory ? (
-                  <div className="flex gap-2">
-                    <select
-                      value={categoryId}
-                      onChange={(e) => {
-                        if (e.target.value === "NEW") setIsCreatingNewCategory(true);
-                        else setCategoryId(e.target.value);
-                      }}
-                      className="min-h-11 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm font-semibold text-foreground"
-                    >
-                      <option value="">Selecciona una categoría...</option>
-                      {categoriesList.map((cat) => (
-                        <option key={String(cat.id)} value={String(cat.id)}>
-                          {String(cat.name)}
-                        </option>
-                      ))}
-                      <option value="NEW">+ Crear nueva categoría...</option>
-                    </select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-h-11 rounded-xl"
-                      onClick={() => setIsCreatingNewCategory(true)}
-                    >
-                      <FolderPlus className="size-4 text-primary" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left: Input Form (Title, Description, Banner, Colors, Category, School) */}
+                <div className="lg:col-span-7 space-y-4">
+                  <div>
+                    <label className="text-sm font-bold text-foreground block">
+                      Título del artículo <span className="text-destructive">*</span>
+                    </label>
                     <Input
-                      placeholder="Nombre de nueva categoría"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      className="min-h-11 rounded-xl"
-                      autoFocus
+                      placeholder="Ej: Guía de Inscripciones y Requisitos Escolares"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="mt-1.5 min-h-11 rounded-xl text-sm font-semibold"
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="min-h-11 rounded-xl"
-                      onClick={() => setIsCreatingNewCategory(false)}
-                    >
-                      Cancelar
-                    </Button>
                   </div>
-                )}
+
+                  <div>
+                    <label className="text-sm font-bold text-foreground block">
+                      Descripción o Resumen de la Tarjeta{" "}
+                      <span className="text-destructive">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Escribe la descripción o resumen que aparecerá directamente en la portada de la tarjeta..."
+                      value={summary}
+                      onChange={(e) => setSummary(e.target.value)}
+                      className="mt-1.5 min-h-[90px] rounded-xl text-xs sm:text-sm leading-relaxed"
+                      rows={3}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Este texto se muestra en la tarjeta de la página principal y en el catálogo.
+                    </p>
+                  </div>
+
+                  {/* Banner Upload & Free Image Transform (Move, Scale, Rotate) */}
+                  <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Banner de la Tarjeta (Imagen de Portada)
+                      </label>
+                      <span className="text-[11px] text-primary font-semibold">
+                        Soporta Mover, Escalar y Rotar
+                      </span>
+                    </div>
+                    <FileUploadInput
+                      id="card-banner-input"
+                      value={cardBanner}
+                      onChange={setCardBanner}
+                      helperText="Sube o pega la imagen. Podrás rotarla, ampliarla y moverla libremente."
+                      placeholder="https://... o sube una imagen"
+                      accept="image/*"
+                    />
+                  </div>
+
+                  {/* Card Background Colors & Gradients */}
+                  <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Fondo de la Tarjeta
+                      </label>
+                      {cardBg && (
+                        <button
+                          type="button"
+                          onClick={() => setCardBg("")}
+                          className="text-[11px] font-semibold text-primary hover:underline"
+                        >
+                          Restablecer por defecto
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Gradients */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
+                        Degradados Rápidos
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        {[
+                          { name: "Por defecto", val: "" },
+                          {
+                            name: "Amanecer",
+                            val: "linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%)",
+                          },
+                          {
+                            name: "Océano",
+                            val: "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)",
+                          },
+                          {
+                            name: "Rosa",
+                            val: "linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)",
+                          },
+                          {
+                            name: "Menta",
+                            val: "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)",
+                          },
+                          {
+                            name: "Lavanda",
+                            val: "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)",
+                          },
+                          {
+                            name: "Noche",
+                            val: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)",
+                          },
+                          {
+                            name: "Escarlata",
+                            val: "linear-gradient(135deg, #e11d48 0%, #fb923c 100%)",
+                          },
+                        ].map((g) => (
+                          <button
+                            key={g.name}
+                            type="button"
+                            onClick={() => setCardBg(g.val)}
+                            style={g.val ? { background: g.val } : undefined}
+                            className={`h-7 rounded-lg px-2 text-[11px] font-bold transition-all border text-start flex items-center justify-between cursor-pointer ${
+                              cardBg === g.val
+                                ? "border-primary ring-2 ring-primary/40 shadow-xs"
+                                : "border-border hover:scale-[1.02]"
+                            } ${
+                              g.val.includes("#0f172a") || g.val.includes("#e11d48")
+                                ? "text-white"
+                                : "text-foreground bg-card"
+                            }`}
+                          >
+                            <span className="truncate">{g.name}</span>
+                            {cardBg === g.val && <span className="text-[10px]">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Solids */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
+                        Colores Sólidos
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { name: "Blanco", val: "#ffffff" },
+                          { name: "Gris Suave", val: "#f8fafc" },
+                          { name: "Azul Tenue", val: "#eff6ff" },
+                          { name: "Rosa Tenue", val: "#fff1f2" },
+                          { name: "Verde Tenue", val: "#ecfdf5" },
+                          { name: "Ámbar Tenue", val: "#fffbeb" },
+                          { name: "Púrpura Tenue", val: "#faf5ff" },
+                          { name: "Carbón Oscuro", val: "#0f172a" },
+                        ].map((c) => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() => setCardBg(c.val)}
+                            style={{ backgroundColor: c.val }}
+                            className={`size-6 rounded-lg border transition-transform hover:scale-110 cursor-pointer ${
+                              cardBg === c.val
+                                ? "border-primary ring-2 ring-primary/40 shadow-xs"
+                                : "border-border"
+                            }`}
+                            title={c.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Custom Hex */}
+                    <div>
+                      <Input
+                        value={cardBg}
+                        onChange={(e) => setCardBg(e.target.value)}
+                        placeholder="Ej: #f0fdf4 o linear-gradient(...)"
+                        className="h-8 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* School & Category */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* School Scope */}
+                    <div className="rounded-2xl border border-border/80 bg-card p-3.5 space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                        Escuela
+                      </label>
+                      <select
+                        value={schoolId}
+                        onChange={(e) => setSchoolId(e.target.value)}
+                        className="w-full min-h-10 rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs font-semibold text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="all">Todas las escuelas (Distrito)</option>
+                        <option value="lincoln">Lincoln High School</option>
+                        <option value="east">East High School</option>
+                      </select>
+                    </div>
+
+                    {/* Category */}
+                    <div className="rounded-2xl border border-border/80 bg-card p-3.5 space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                        Categoría
+                      </label>
+                      {!isCreatingNewCategory ? (
+                        <div className="flex gap-1.5">
+                          <select
+                            value={categoryId}
+                            onChange={(e) => {
+                              if (e.target.value === "NEW") setIsCreatingNewCategory(true);
+                              else setCategoryId(e.target.value);
+                            }}
+                            className="min-h-10 flex-1 rounded-xl border border-input bg-background px-2.5 py-1.5 text-xs font-semibold text-foreground"
+                          >
+                            <option value="">Selecciona categoría...</option>
+                            {categoriesList.map((cat) => (
+                              <option key={String(cat.id)} value={String(cat.id)}>
+                                {String(cat.name)}
+                              </option>
+                            ))}
+                            <option value="NEW">+ Nueva categoría...</option>
+                          </select>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="min-h-10 rounded-xl px-2.5"
+                            onClick={() => setIsCreatingNewCategory(true)}
+                          >
+                            <FolderPlus className="size-4 text-primary" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-1.5">
+                          <Input
+                            placeholder="Nombre de categoría"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            className="min-h-10 rounded-xl text-xs"
+                            autoFocus
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="min-h-10 rounded-xl text-xs"
+                            onClick={() => setIsCreatingNewCategory(false)}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Live Real-time Card Preview (Together with Form) */}
+                <div className="lg:col-span-5 sticky top-2">
+                  <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                        Vista Previa en Vivo de la Tarjeta
+                      </span>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground bg-background px-2 py-0.5 rounded-md border border-border">
+                        En Tiempo Real
+                      </span>
+                    </div>
+
+                    {/* Exact Article Card Render */}
+                    <div
+                      style={cardBg ? { background: cardBg } : undefined}
+                      className={`rounded-2xl border overflow-hidden transition-all duration-300 shadow-md ${
+                        cardBg &&
+                        (cardBg.includes("#0") ||
+                          cardBg.includes("#1") ||
+                          cardBg.includes("0f172a") ||
+                          cardBg.includes("e11d48"))
+                          ? "text-white border-white/20"
+                          : "bg-card text-foreground border-border/80"
+                      }`}
+                    >
+                      {/* Banner */}
+                      {cardBanner ? (
+                        <div className="relative w-full overflow-hidden border-b border-border/40 bg-muted/20">
+                          <img
+                            src={cardBanner}
+                            alt="Preview banner"
+                            className="w-full h-auto max-h-[600px] object-cover rounded-t-2xl"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-28 w-full bg-muted/40 border-b border-dashed border-border/60 flex flex-col items-center justify-center text-xs text-muted-foreground gap-1 p-3 text-center">
+                          <Sparkles className="size-4 text-primary/60" />
+                          <span>Sube una imagen para ver el banner aquí</span>
+                        </div>
+                      )}
+
+                      {/* Description & Action */}
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase ${
+                              cardBg &&
+                              (cardBg.includes("#0") ||
+                                cardBg.includes("0f172a") ||
+                                cardBg.includes("e11d48"))
+                                ? "bg-white/20 text-white"
+                                : "bg-primary/10 text-primary"
+                            }`}
+                          >
+                            {categoriesList.find((c) => c.id === categoryId)?.name || "Artículo"}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {schoolId === "east"
+                              ? "East High"
+                              : schoolId === "lincoln"
+                                ? "Lincoln"
+                                : "Todas las escuelas"}
+                          </span>
+                        </div>
+
+                        <p
+                          className={`text-xs font-medium leading-relaxed line-clamp-4 ${
+                            cardBg &&
+                            (cardBg.includes("#0") ||
+                              cardBg.includes("0f172a") ||
+                              cardBg.includes("e11d48"))
+                              ? "text-slate-200"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {summary ||
+                            "Escribe la descripción o resumen en el formulario para ver cómo luce la tarjeta al instante..."}
+                        </p>
+
+                        <div
+                          className={`pt-2.5 border-t flex items-center justify-between text-xs font-bold ${
+                            cardBg &&
+                            (cardBg.includes("#0") ||
+                              cardBg.includes("0f172a") ||
+                              cardBg.includes("e11d48"))
+                              ? "border-white/20 text-white"
+                              : "border-border/60 text-primary"
+                          }`}
+                        >
+                          <span>Leer más</span>
+                          <span>→</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground text-center pt-1">
+                      💡 La tarjeta se adapta dinámicamente al tamaño de tu imagen y a los colores
+                      seleccionados.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* STEP 2: Content & Media */}
+          {/* STEP 2: Full Rich Article Body Content */}
           {activeStep === 2 && (
-            <div className="space-y-4 animate-in fade-in">
+            <div className="space-y-5 animate-in fade-in">
               <div>
                 <label className="text-sm font-bold text-foreground block mb-1.5">
                   Cuerpo principal del artículo
@@ -974,35 +1218,27 @@ function ArticleStepEditorModal({
                 />
               </div>
 
-              {/* Featured Image & Alt text */}
+              {/* Featured Image & Alt */}
               <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-3">
-                <label className="text-sm font-bold text-foreground block">
-                  Imagen destacada y accesibilidad
+                <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
+                  Imagen interna y accesibilidad (Opcional)
                 </label>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground">
-                      URL de la imagen
-                    </label>
-                    <Input
-                      placeholder="https://..."
-                      value={featuredImage}
-                      onChange={(e) => setFeaturedImage(e.target.value)}
-                      className="mt-1 min-h-10 rounded-xl text-xs"
-                    />
-                  </div>
+                <FileUploadInput
+                  id="featured-image-input"
+                  value={featuredImage}
+                  onChange={setFeaturedImage}
+                  helperText="Imagen mostrada dentro del artículo al abrirlo."
+                  placeholder="https://... o sube una imagen"
+                  accept="image/*"
+                />
 
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground">
-                      Texto alternativo de accesibilidad (Alt)
-                    </label>
-                    <Input
-                      placeholder="Descripción breve de la imagen para personas con discapacidad visual"
-                      value={imageAlt}
-                      onChange={(e) => setImageAlt(e.target.value)}
-                      className="mt-1 min-h-10 rounded-xl text-xs"
-                    />
-                  </div>
+                <div>
+                  <Input
+                    placeholder="Texto alternativo de accesibilidad (Alt)"
+                    value={imageAlt}
+                    onChange={(e) => setImageAlt(e.target.value)}
+                    className="h-9 rounded-lg text-xs"
+                  />
                 </div>
               </div>
             </div>
