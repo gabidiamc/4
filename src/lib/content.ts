@@ -63,7 +63,7 @@ export async function fetchCategories(schoolId?: string): Promise<CategoryRow[]>
     const { data, error } = await supabase
       .from("categories")
       .select(
-        "id, slug, name, description, icon, display_order, is_featured, is_visible, category_translations(language_code, name, description)",
+        "id, slug, name, description, icon, display_order, is_featured, is_visible, card_banner_url, card_bg, category_translations(language_code, name, description)",
       )
       .order("display_order", { ascending: true });
 

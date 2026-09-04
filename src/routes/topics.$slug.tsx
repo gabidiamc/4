@@ -88,6 +88,12 @@ function TopicPage() {
                   src={category.banner_url || (category as any).image_url}
                   alt={loc?.name ?? slug}
                   className="w-full max-h-[320px] object-cover"
+                  onError={(e) => {
+                    ((e.target as HTMLElement).parentElement as HTMLElement)?.style.setProperty(
+                      "display",
+                      "none",
+                    );
+                  }}
                 />
               </div>
             )}

@@ -15,12 +15,14 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AnnouncementsRouteImport } from './routes/announcements'
 import { Route as AppsRouteImport } from './routes/apps'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BflStatusRouteImport } from './routes/bfl-status'
 import { Route as CalendarioRouteImport } from './routes/calendario'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DeportesActividadesRouteImport } from './routes/deportes-actividades'
 import { Route as EmpleosRouteImport } from './routes/empleos'
 import { Route as EquiposRouteImport } from './routes/equipos'
 import { Route as EscuelasRouteImport } from './routes/escuelas'
+import { Route as EventosRouteImport } from './routes/eventos'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as HorarioCampanasRouteImport } from './routes/horario-campanas'
 import { Route as LincolnRouteImport } from './routes/lincoln'
@@ -29,6 +31,7 @@ import { Route as ProgramasRouteImport } from './routes/programas'
 import { Route as ProgramasEstudiantesRouteImport } from './routes/programas-estudiantes'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as VoluntariosRouteImport } from './routes/voluntarios'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -38,17 +41,22 @@ import { Route as AdminAparienciaRouteImport } from './routes/admin.apariencia'
 import { Route as AdminArticulosRouteImport } from './routes/admin.articulos'
 import { Route as AdminAyudaFamiliasRouteImport } from './routes/admin.ayuda-familias'
 import { Route as AdminCalendarioRouteImport } from './routes/admin.calendario'
+import { Route as AdminCalidadRouteImport } from './routes/admin.calidad'
 import { Route as AdminCategoriasRouteImport } from './routes/admin.categorias'
 import { Route as AdminContactosRouteImport } from './routes/admin.contactos'
 import { Route as AdminDeportesActividadesRouteImport } from './routes/admin.deportes-actividades'
 import { Route as AdminEmergentesRouteImport } from './routes/admin.emergentes'
 import { Route as AdminEscuelasRouteImport } from './routes/admin.escuelas'
-import { Route as AdminFuentesRouteImport } from './routes/admin.fuentes'
+import { Route as AdminMenuRouteImport } from './routes/admin.menu'
 import { Route as AdminProgramasRouteImport } from './routes/admin.programas'
 import { Route as AdminProgramasEstudiantesRouteImport } from './routes/admin.programas-estudiantes'
+import { Route as AdminRecursosRouteImport } from './routes/admin.recursos'
+import { Route as AdminReinicioRouteImport } from './routes/admin.reinicio'
+import { Route as AdminServiciosRouteImport } from './routes/admin.servicios'
 import { Route as AdminSolicitudesRouteImport } from './routes/admin.solicitudes'
+import { Route as AdminTraduccionesRouteImport } from './routes/admin.traducciones'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
-import { Route as AdminVerificacionRouteImport } from './routes/admin.verificacion'
+import { Route as AdminVigenciaRouteImport } from './routes/admin.vigencia'
 import { Route as AdminLoginRouteImport } from './routes/admin_.login'
 import { Route as AdminRegistroRouteImport } from './routes/admin_.registro'
 import { Route as ArticlesSlugRouteImport } from './routes/articles.$slug'
@@ -97,6 +105,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BflStatusRoute = BflStatusRouteImport.update({
+  id: '/bfl-status',
+  path: '/bfl-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CalendarioRoute = CalendarioRouteImport.update({
   id: '/calendario',
   path: '/calendario',
@@ -125,6 +138,11 @@ const EquiposRoute = EquiposRouteImport.update({
 const EscuelasRoute = EscuelasRouteImport.update({
   id: '/escuelas',
   path: '/escuelas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventosRoute = EventosRouteImport.update({
+  id: '/eventos',
+  path: '/eventos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FaqRoute = FaqRouteImport.update({
@@ -165,6 +183,11 @@ const SearchRoute = SearchRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VoluntariosRoute = VoluntariosRouteImport.update({
+  id: '/voluntarios',
+  path: '/voluntarios',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Char91DotmcpChar93ListToolsRoute =
@@ -214,6 +237,11 @@ const AdminCalendarioRoute = AdminCalendarioRouteImport.update({
   path: '/calendario',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminCalidadRoute = AdminCalidadRouteImport.update({
+  id: '/calidad',
+  path: '/calidad',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminCategoriasRoute = AdminCategoriasRouteImport.update({
   id: '/categorias',
   path: '/categorias',
@@ -240,9 +268,9 @@ const AdminEscuelasRoute = AdminEscuelasRouteImport.update({
   path: '/escuelas',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminFuentesRoute = AdminFuentesRouteImport.update({
-  id: '/fuentes',
-  path: '/fuentes',
+const AdminMenuRoute = AdminMenuRouteImport.update({
+  id: '/menu',
+  path: '/menu',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminProgramasRoute = AdminProgramasRouteImport.update({
@@ -256,9 +284,29 @@ const AdminProgramasEstudiantesRoute =
     path: '/programas-estudiantes',
     getParentRoute: () => AdminRoute,
   } as any)
+const AdminRecursosRoute = AdminRecursosRouteImport.update({
+  id: '/recursos',
+  path: '/recursos',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReinicioRoute = AdminReinicioRouteImport.update({
+  id: '/reinicio',
+  path: '/reinicio',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminServiciosRoute = AdminServiciosRouteImport.update({
+  id: '/servicios',
+  path: '/servicios',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSolicitudesRoute = AdminSolicitudesRouteImport.update({
   id: '/solicitudes',
   path: '/solicitudes',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTraduccionesRoute = AdminTraduccionesRouteImport.update({
+  id: '/traducciones',
+  path: '/traducciones',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
@@ -266,9 +314,9 @@ const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminVerificacionRoute = AdminVerificacionRouteImport.update({
-  id: '/verificacion',
-  path: '/verificacion',
+const AdminVigenciaRoute = AdminVigenciaRouteImport.update({
+  id: '/vigencia',
+  path: '/vigencia',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
@@ -366,12 +414,14 @@ export interface FileRoutesByFullPath {
   '/announcements': typeof AnnouncementsRoute
   '/apps': typeof AppsRoute
   '/auth': typeof AuthRoute
+  '/bfl-status': typeof BflStatusRoute
   '/calendario': typeof CalendarioRoute
   '/contact': typeof ContactRoute
   '/deportes-actividades': typeof DeportesActividadesRoute
   '/empleos': typeof EmpleosRoute
   '/equipos': typeof EquiposRouteWithChildren
   '/escuelas': typeof EscuelasRoute
+  '/eventos': typeof EventosRoute
   '/faq': typeof FaqRoute
   '/horario-campanas': typeof HorarioCampanasRoute
   '/lincoln': typeof LincolnRoute
@@ -380,6 +430,7 @@ export interface FileRoutesByFullPath {
   '/programas-estudiantes': typeof ProgramasEstudiantesRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/voluntarios': typeof VoluntariosRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/actividades': typeof AdminActividadesRoute
@@ -388,17 +439,22 @@ export interface FileRoutesByFullPath {
   '/admin/articulos': typeof AdminArticulosRoute
   '/admin/ayuda-familias': typeof AdminAyudaFamiliasRoute
   '/admin/calendario': typeof AdminCalendarioRoute
+  '/admin/calidad': typeof AdminCalidadRoute
   '/admin/categorias': typeof AdminCategoriasRoute
   '/admin/contactos': typeof AdminContactosRoute
   '/admin/deportes-actividades': typeof AdminDeportesActividadesRoute
   '/admin/emergentes': typeof AdminEmergentesRoute
   '/admin/escuelas': typeof AdminEscuelasRoute
-  '/admin/fuentes': typeof AdminFuentesRoute
+  '/admin/menu': typeof AdminMenuRoute
   '/admin/programas': typeof AdminProgramasRoute
   '/admin/programas-estudiantes': typeof AdminProgramasEstudiantesRoute
+  '/admin/recursos': typeof AdminRecursosRoute
+  '/admin/reinicio': typeof AdminReinicioRoute
+  '/admin/servicios': typeof AdminServiciosRoute
   '/admin/solicitudes': typeof AdminSolicitudesRoute
+  '/admin/traducciones': typeof AdminTraduccionesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
-  '/admin/verificacion': typeof AdminVerificacionRoute
+  '/admin/vigencia': typeof AdminVigenciaRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/registro': typeof AdminRegistroRoute
   '/articles/$slug': typeof ArticlesSlugRoute
@@ -424,11 +480,13 @@ export interface FileRoutesByTo {
   '/announcements': typeof AnnouncementsRoute
   '/apps': typeof AppsRoute
   '/auth': typeof AuthRoute
+  '/bfl-status': typeof BflStatusRoute
   '/calendario': typeof CalendarioRoute
   '/contact': typeof ContactRoute
   '/deportes-actividades': typeof DeportesActividadesRoute
   '/empleos': typeof EmpleosRoute
   '/escuelas': typeof EscuelasRoute
+  '/eventos': typeof EventosRoute
   '/faq': typeof FaqRoute
   '/horario-campanas': typeof HorarioCampanasRoute
   '/lincoln': typeof LincolnRoute
@@ -437,6 +495,7 @@ export interface FileRoutesByTo {
   '/programas-estudiantes': typeof ProgramasEstudiantesRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/voluntarios': typeof VoluntariosRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/actividades': typeof AdminActividadesRoute
@@ -445,17 +504,22 @@ export interface FileRoutesByTo {
   '/admin/articulos': typeof AdminArticulosRoute
   '/admin/ayuda-familias': typeof AdminAyudaFamiliasRoute
   '/admin/calendario': typeof AdminCalendarioRoute
+  '/admin/calidad': typeof AdminCalidadRoute
   '/admin/categorias': typeof AdminCategoriasRoute
   '/admin/contactos': typeof AdminContactosRoute
   '/admin/deportes-actividades': typeof AdminDeportesActividadesRoute
   '/admin/emergentes': typeof AdminEmergentesRoute
   '/admin/escuelas': typeof AdminEscuelasRoute
-  '/admin/fuentes': typeof AdminFuentesRoute
+  '/admin/menu': typeof AdminMenuRoute
   '/admin/programas': typeof AdminProgramasRoute
   '/admin/programas-estudiantes': typeof AdminProgramasEstudiantesRoute
+  '/admin/recursos': typeof AdminRecursosRoute
+  '/admin/reinicio': typeof AdminReinicioRoute
+  '/admin/servicios': typeof AdminServiciosRoute
   '/admin/solicitudes': typeof AdminSolicitudesRoute
+  '/admin/traducciones': typeof AdminTraduccionesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
-  '/admin/verificacion': typeof AdminVerificacionRoute
+  '/admin/vigencia': typeof AdminVigenciaRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/registro': typeof AdminRegistroRoute
   '/articles/$slug': typeof ArticlesSlugRoute
@@ -483,12 +547,14 @@ export interface FileRoutesById {
   '/announcements': typeof AnnouncementsRoute
   '/apps': typeof AppsRoute
   '/auth': typeof AuthRoute
+  '/bfl-status': typeof BflStatusRoute
   '/calendario': typeof CalendarioRoute
   '/contact': typeof ContactRoute
   '/deportes-actividades': typeof DeportesActividadesRoute
   '/empleos': typeof EmpleosRoute
   '/equipos': typeof EquiposRouteWithChildren
   '/escuelas': typeof EscuelasRoute
+  '/eventos': typeof EventosRoute
   '/faq': typeof FaqRoute
   '/horario-campanas': typeof HorarioCampanasRoute
   '/lincoln': typeof LincolnRoute
@@ -497,6 +563,7 @@ export interface FileRoutesById {
   '/programas-estudiantes': typeof ProgramasEstudiantesRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/voluntarios': typeof VoluntariosRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/actividades': typeof AdminActividadesRoute
@@ -505,17 +572,22 @@ export interface FileRoutesById {
   '/admin/articulos': typeof AdminArticulosRoute
   '/admin/ayuda-familias': typeof AdminAyudaFamiliasRoute
   '/admin/calendario': typeof AdminCalendarioRoute
+  '/admin/calidad': typeof AdminCalidadRoute
   '/admin/categorias': typeof AdminCategoriasRoute
   '/admin/contactos': typeof AdminContactosRoute
   '/admin/deportes-actividades': typeof AdminDeportesActividadesRoute
   '/admin/emergentes': typeof AdminEmergentesRoute
   '/admin/escuelas': typeof AdminEscuelasRoute
-  '/admin/fuentes': typeof AdminFuentesRoute
+  '/admin/menu': typeof AdminMenuRoute
   '/admin/programas': typeof AdminProgramasRoute
   '/admin/programas-estudiantes': typeof AdminProgramasEstudiantesRoute
+  '/admin/recursos': typeof AdminRecursosRoute
+  '/admin/reinicio': typeof AdminReinicioRoute
+  '/admin/servicios': typeof AdminServiciosRoute
   '/admin/solicitudes': typeof AdminSolicitudesRoute
+  '/admin/traducciones': typeof AdminTraduccionesRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
-  '/admin/verificacion': typeof AdminVerificacionRoute
+  '/admin/vigencia': typeof AdminVigenciaRoute
   '/admin_/login': typeof AdminLoginRoute
   '/admin_/registro': typeof AdminRegistroRoute
   '/articles/$slug': typeof ArticlesSlugRoute
@@ -544,12 +616,14 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/apps'
     | '/auth'
+    | '/bfl-status'
     | '/calendario'
     | '/contact'
     | '/deportes-actividades'
     | '/empleos'
     | '/equipos'
     | '/escuelas'
+    | '/eventos'
     | '/faq'
     | '/horario-campanas'
     | '/lincoln'
@@ -558,6 +632,7 @@ export interface FileRouteTypes {
     | '/programas-estudiantes'
     | '/search'
     | '/sitemap.xml'
+    | '/voluntarios'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/admin/actividades'
@@ -566,17 +641,22 @@ export interface FileRouteTypes {
     | '/admin/articulos'
     | '/admin/ayuda-familias'
     | '/admin/calendario'
+    | '/admin/calidad'
     | '/admin/categorias'
     | '/admin/contactos'
     | '/admin/deportes-actividades'
     | '/admin/emergentes'
     | '/admin/escuelas'
-    | '/admin/fuentes'
+    | '/admin/menu'
     | '/admin/programas'
     | '/admin/programas-estudiantes'
+    | '/admin/recursos'
+    | '/admin/reinicio'
+    | '/admin/servicios'
     | '/admin/solicitudes'
+    | '/admin/traducciones'
     | '/admin/usuarios'
-    | '/admin/verificacion'
+    | '/admin/vigencia'
     | '/admin/login'
     | '/admin/registro'
     | '/articles/$slug'
@@ -602,11 +682,13 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/apps'
     | '/auth'
+    | '/bfl-status'
     | '/calendario'
     | '/contact'
     | '/deportes-actividades'
     | '/empleos'
     | '/escuelas'
+    | '/eventos'
     | '/faq'
     | '/horario-campanas'
     | '/lincoln'
@@ -615,6 +697,7 @@ export interface FileRouteTypes {
     | '/programas-estudiantes'
     | '/search'
     | '/sitemap.xml'
+    | '/voluntarios'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/admin/actividades'
@@ -623,17 +706,22 @@ export interface FileRouteTypes {
     | '/admin/articulos'
     | '/admin/ayuda-familias'
     | '/admin/calendario'
+    | '/admin/calidad'
     | '/admin/categorias'
     | '/admin/contactos'
     | '/admin/deportes-actividades'
     | '/admin/emergentes'
     | '/admin/escuelas'
-    | '/admin/fuentes'
+    | '/admin/menu'
     | '/admin/programas'
     | '/admin/programas-estudiantes'
+    | '/admin/recursos'
+    | '/admin/reinicio'
+    | '/admin/servicios'
     | '/admin/solicitudes'
+    | '/admin/traducciones'
     | '/admin/usuarios'
-    | '/admin/verificacion'
+    | '/admin/vigencia'
     | '/admin/login'
     | '/admin/registro'
     | '/articles/$slug'
@@ -660,12 +748,14 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/apps'
     | '/auth'
+    | '/bfl-status'
     | '/calendario'
     | '/contact'
     | '/deportes-actividades'
     | '/empleos'
     | '/equipos'
     | '/escuelas'
+    | '/eventos'
     | '/faq'
     | '/horario-campanas'
     | '/lincoln'
@@ -674,6 +764,7 @@ export interface FileRouteTypes {
     | '/programas-estudiantes'
     | '/search'
     | '/sitemap.xml'
+    | '/voluntarios'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/admin/actividades'
@@ -682,17 +773,22 @@ export interface FileRouteTypes {
     | '/admin/articulos'
     | '/admin/ayuda-familias'
     | '/admin/calendario'
+    | '/admin/calidad'
     | '/admin/categorias'
     | '/admin/contactos'
     | '/admin/deportes-actividades'
     | '/admin/emergentes'
     | '/admin/escuelas'
-    | '/admin/fuentes'
+    | '/admin/menu'
     | '/admin/programas'
     | '/admin/programas-estudiantes'
+    | '/admin/recursos'
+    | '/admin/reinicio'
+    | '/admin/servicios'
     | '/admin/solicitudes'
+    | '/admin/traducciones'
     | '/admin/usuarios'
-    | '/admin/verificacion'
+    | '/admin/vigencia'
     | '/admin_/login'
     | '/admin_/registro'
     | '/articles/$slug'
@@ -720,12 +816,14 @@ export interface RootRouteChildren {
   AnnouncementsRoute: typeof AnnouncementsRoute
   AppsRoute: typeof AppsRoute
   AuthRoute: typeof AuthRoute
+  BflStatusRoute: typeof BflStatusRoute
   CalendarioRoute: typeof CalendarioRoute
   ContactRoute: typeof ContactRoute
   DeportesActividadesRoute: typeof DeportesActividadesRoute
   EmpleosRoute: typeof EmpleosRoute
   EquiposRoute: typeof EquiposRouteWithChildren
   EscuelasRoute: typeof EscuelasRoute
+  EventosRoute: typeof EventosRoute
   FaqRoute: typeof FaqRoute
   HorarioCampanasRoute: typeof HorarioCampanasRoute
   LincolnRoute: typeof LincolnRoute
@@ -734,6 +832,7 @@ export interface RootRouteChildren {
   ProgramasEstudiantesRoute: typeof ProgramasEstudiantesRoute
   SearchRoute: typeof SearchRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  VoluntariosRoute: typeof VoluntariosRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   AdminLoginRoute: typeof AdminLoginRoute
@@ -795,6 +894,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bfl-status': {
+      id: '/bfl-status'
+      path: '/bfl-status'
+      fullPath: '/bfl-status'
+      preLoaderRoute: typeof BflStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/calendario': {
       id: '/calendario'
       path: '/calendario'
@@ -835,6 +941,13 @@ declare module '@tanstack/react-router' {
       path: '/escuelas'
       fullPath: '/escuelas'
       preLoaderRoute: typeof EscuelasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/eventos': {
+      id: '/eventos'
+      path: '/eventos'
+      fullPath: '/eventos'
+      preLoaderRoute: typeof EventosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/faq': {
@@ -891,6 +1004,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/voluntarios': {
+      id: '/voluntarios'
+      path: '/voluntarios'
+      fullPath: '/voluntarios'
+      preLoaderRoute: typeof VoluntariosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.mcp/list-tools': {
@@ -956,6 +1076,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCalendarioRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/calidad': {
+      id: '/admin/calidad'
+      path: '/calidad'
+      fullPath: '/admin/calidad'
+      preLoaderRoute: typeof AdminCalidadRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/categorias': {
       id: '/admin/categorias'
       path: '/categorias'
@@ -991,11 +1118,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEscuelasRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/fuentes': {
-      id: '/admin/fuentes'
-      path: '/fuentes'
-      fullPath: '/admin/fuentes'
-      preLoaderRoute: typeof AdminFuentesRouteImport
+    '/admin/menu': {
+      id: '/admin/menu'
+      path: '/menu'
+      fullPath: '/admin/menu'
+      preLoaderRoute: typeof AdminMenuRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/programas': {
@@ -1012,11 +1139,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProgramasEstudiantesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/recursos': {
+      id: '/admin/recursos'
+      path: '/recursos'
+      fullPath: '/admin/recursos'
+      preLoaderRoute: typeof AdminRecursosRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reinicio': {
+      id: '/admin/reinicio'
+      path: '/reinicio'
+      fullPath: '/admin/reinicio'
+      preLoaderRoute: typeof AdminReinicioRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/servicios': {
+      id: '/admin/servicios'
+      path: '/servicios'
+      fullPath: '/admin/servicios'
+      preLoaderRoute: typeof AdminServiciosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/solicitudes': {
       id: '/admin/solicitudes'
       path: '/solicitudes'
       fullPath: '/admin/solicitudes'
       preLoaderRoute: typeof AdminSolicitudesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/traducciones': {
+      id: '/admin/traducciones'
+      path: '/traducciones'
+      fullPath: '/admin/traducciones'
+      preLoaderRoute: typeof AdminTraduccionesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/usuarios': {
@@ -1026,11 +1181,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsuariosRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/verificacion': {
-      id: '/admin/verificacion'
-      path: '/verificacion'
-      fullPath: '/admin/verificacion'
-      preLoaderRoute: typeof AdminVerificacionRouteImport
+    '/admin/vigencia': {
+      id: '/admin/vigencia'
+      path: '/vigencia'
+      fullPath: '/admin/vigencia'
+      preLoaderRoute: typeof AdminVigenciaRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin_/login': {
@@ -1162,17 +1317,22 @@ interface AdminRouteChildren {
   AdminArticulosRoute: typeof AdminArticulosRoute
   AdminAyudaFamiliasRoute: typeof AdminAyudaFamiliasRoute
   AdminCalendarioRoute: typeof AdminCalendarioRoute
+  AdminCalidadRoute: typeof AdminCalidadRoute
   AdminCategoriasRoute: typeof AdminCategoriasRoute
   AdminContactosRoute: typeof AdminContactosRoute
   AdminDeportesActividadesRoute: typeof AdminDeportesActividadesRoute
   AdminEmergentesRoute: typeof AdminEmergentesRoute
   AdminEscuelasRoute: typeof AdminEscuelasRoute
-  AdminFuentesRoute: typeof AdminFuentesRoute
+  AdminMenuRoute: typeof AdminMenuRoute
   AdminProgramasRoute: typeof AdminProgramasRoute
   AdminProgramasEstudiantesRoute: typeof AdminProgramasEstudiantesRoute
+  AdminRecursosRoute: typeof AdminRecursosRoute
+  AdminReinicioRoute: typeof AdminReinicioRoute
+  AdminServiciosRoute: typeof AdminServiciosRoute
   AdminSolicitudesRoute: typeof AdminSolicitudesRoute
+  AdminTraduccionesRoute: typeof AdminTraduccionesRoute
   AdminUsuariosRoute: typeof AdminUsuariosRoute
-  AdminVerificacionRoute: typeof AdminVerificacionRoute
+  AdminVigenciaRoute: typeof AdminVigenciaRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminDartConfiguracionRoute: typeof AdminDartConfiguracionRoute
   AdminDartIndexRoute: typeof AdminDartIndexRoute
@@ -1185,17 +1345,22 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminArticulosRoute: AdminArticulosRoute,
   AdminAyudaFamiliasRoute: AdminAyudaFamiliasRoute,
   AdminCalendarioRoute: AdminCalendarioRoute,
+  AdminCalidadRoute: AdminCalidadRoute,
   AdminCategoriasRoute: AdminCategoriasRoute,
   AdminContactosRoute: AdminContactosRoute,
   AdminDeportesActividadesRoute: AdminDeportesActividadesRoute,
   AdminEmergentesRoute: AdminEmergentesRoute,
   AdminEscuelasRoute: AdminEscuelasRoute,
-  AdminFuentesRoute: AdminFuentesRoute,
+  AdminMenuRoute: AdminMenuRoute,
   AdminProgramasRoute: AdminProgramasRoute,
   AdminProgramasEstudiantesRoute: AdminProgramasEstudiantesRoute,
+  AdminRecursosRoute: AdminRecursosRoute,
+  AdminReinicioRoute: AdminReinicioRoute,
+  AdminServiciosRoute: AdminServiciosRoute,
   AdminSolicitudesRoute: AdminSolicitudesRoute,
+  AdminTraduccionesRoute: AdminTraduccionesRoute,
   AdminUsuariosRoute: AdminUsuariosRoute,
-  AdminVerificacionRoute: AdminVerificacionRoute,
+  AdminVigenciaRoute: AdminVigenciaRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminDartConfiguracionRoute: AdminDartConfiguracionRoute,
   AdminDartIndexRoute: AdminDartIndexRoute,
@@ -1223,12 +1388,14 @@ const rootRouteChildren: RootRouteChildren = {
   AnnouncementsRoute: AnnouncementsRoute,
   AppsRoute: AppsRoute,
   AuthRoute: AuthRoute,
+  BflStatusRoute: BflStatusRoute,
   CalendarioRoute: CalendarioRoute,
   ContactRoute: ContactRoute,
   DeportesActividadesRoute: DeportesActividadesRoute,
   EmpleosRoute: EmpleosRoute,
   EquiposRoute: EquiposRouteWithChildren,
   EscuelasRoute: EscuelasRoute,
+  EventosRoute: EventosRoute,
   FaqRoute: FaqRoute,
   HorarioCampanasRoute: HorarioCampanasRoute,
   LincolnRoute: LincolnRoute,
@@ -1237,6 +1404,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProgramasEstudiantesRoute: ProgramasEstudiantesRoute,
   SearchRoute: SearchRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  VoluntariosRoute: VoluntariosRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,

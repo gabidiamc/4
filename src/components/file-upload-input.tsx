@@ -1,8 +1,19 @@
 import React, { useRef, useState } from "react";
-import { Upload, X, FileText, Image as ImageIcon, Check, Crop, Move, RotateCw } from "lucide-react";
+import {
+  Upload,
+  X,
+  FileText,
+  Image as ImageIcon,
+  Check,
+  Crop,
+  Move,
+  RotateCw,
+  Loader2,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ImageAdjuster } from "@/components/image-adjuster";
+import { compressImageFile } from "@/lib/image-compression";
 
 interface FileUploadInputProps {
   id?: string;
@@ -39,21 +50,30 @@ export function FileUploadInput({
     value.match(/\.(jpeg|jpg|png|gif|webp|svg|bmp|avif)($|\?)/i) ||
     (!isPdf && value.startsWith("http"));
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     setIsProcessing(true);
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const result = reader.result as string;
-      onChange(result);
+    try {
+      const optimizedUrl = await compressImageFile(file, {
+        maxWidth: 1280,
+        maxHeight: 1280,
+        quality: 0.82,
+        mimeType: "image/jpeg",
+      });
+      onChange(optimizedUrl);
+    } catch (err) {
+      console.error("Error optimizing uploaded file:", err);
+      // Fallback to basic file reader
+      const reader = new FileReader();
+      reader.onload = () => {
+        onChange(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } finally {
       setIsProcessing(false);
-    };
-
-    reader.onerror = () => {
-      setIsProcessing(false);
-    };
-
-    reader.readAsDataURL(file);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,8 +102,52 @@ export function FileUploadInput({
     }
   };
 
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    // 1. Check for files
+    const files = Array.from(clipboardData.files || []);
+    const imgFile = files.find((f) => f.type.startsWith("image/") || f.type.includes("pdf"));
+    if (imgFile) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleFile(imgFile);
+      return;
+    }
+
+    // 2. Check items
+    const items = Array.from(clipboardData.items || []);
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleFile(file);
+          return;
+        }
+      }
+    }
+
+    // 3. Check direct image or pdf url
+    const text = clipboardData.getData("text/plain")?.trim();
+    if (
+      text &&
+      (text.startsWith("data:image/") ||
+        /\.(jpg|jpeg|png|webp|gif|svg|avif|pdf)($|\?)/i.test(text) ||
+        (text.startsWith("http") &&
+          (text.includes("images.unsplash.com") ||
+            text.includes("cloudinary.com") ||
+            text.includes("imgur.com"))))
+    ) {
+      e.preventDefault();
+      onChange(text);
+    }
+  };
+
   return (
-    <div className={`space-y-2 ${className}`}>
+    <div onPaste={handlePaste} className={`space-y-2 ${className}`}>
       {label && <label className="text-xs font-bold text-muted-foreground block">{label}</label>}
 
       {/* Input row + File selection button */}
@@ -93,6 +157,7 @@ export function FileUploadInput({
             id={id}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onPaste={handlePaste}
             placeholder={placeholder}
             className="min-h-11 rounded-xl text-xs pr-10"
           />
@@ -128,13 +193,15 @@ export function FileUploadInput({
         </Button>
       </div>
 
-      {/* Drag and Drop Zone */}
+      {/* Drag and Drop Zone with Paste Support */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onPaste={handlePaste}
         onClick={() => fileInputRef.current?.click()}
-        className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center cursor-pointer transition-colors ${
+        tabIndex={0}
+        className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center cursor-pointer transition-colors focus:outline-hidden focus:ring-2 focus:ring-primary/20 ${
           isDragging
             ? "border-primary bg-primary/10"
             : "border-border/80 bg-muted/20 hover:bg-muted/40"
@@ -142,9 +209,14 @@ export function FileUploadInput({
       >
         <Upload className="size-5 text-muted-foreground mb-1" />
         <p className="text-xs font-medium text-foreground">
-          Haz clic o arrastra aquí tu archivo (PNG, JPG, PDF, WEBP, etc.)
+          Haz clic, arrastra tu archivo o pega con{" "}
+          <kbd className="rounded bg-background px-1.5 py-0.5 font-mono text-[10px] text-foreground font-semibold border border-border">
+            Ctrl+V
+          </kbd>
         </p>
-        {helperText && <p className="text-[11px] text-muted-foreground mt-0.5">{helperText}</p>}
+        <p className="text-[11px] text-muted-foreground mt-0.5">
+          {helperText || "Admite fotos (PNG, JPG, WEBP) o documentos PDF"}
+        </p>
       </div>
 
       {/* Preview & Image Tools */}

@@ -105,6 +105,11 @@ function TopicsPage() {
                           className="w-full h-auto max-h-[600px] object-cover transition-transform duration-300 group-hover:scale-[1.02] rounded-t-2xl"
                           loading="lazy"
                           referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (
+                              (e.target as HTMLElement).parentElement as HTMLElement
+                            )?.style.setProperty("display", "none");
+                          }}
                         />
                       </div>
                     )}

@@ -154,15 +154,18 @@ function ArticlePage() {
           </div>
         ) : (
           <>
-            {data?.featured_image_url && (
-              <div className="mt-6 overflow-hidden rounded-2xl border border-border shadow-soft">
+            {(data?.card_banner_url || data?.featured_image_url) && (
+              <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-muted/20 shadow-sm">
                 <img
-                  src={data.featured_image_url}
-                  alt={data.image_alt || loc.title}
-                  className="w-full max-h-[420px] object-cover"
+                  src={data.card_banner_url || data.featured_image_url}
+                  alt={loc.title || "Banner del artículo"}
+                  className="w-full h-auto max-h-[480px] object-cover"
+                  loading="eager"
+                  referrerPolicy="no-referrer"
                 />
               </div>
             )}
+
             <h1 className="mt-6 text-4xl font-extrabold sm:text-5xl">{loc.title}</h1>
             {loc.summary ? (
               <p className="mt-4 text-xl text-muted-foreground">{loc.summary}</p>

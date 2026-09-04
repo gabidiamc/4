@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Calendar as CalendarIcon,
   FileText,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
@@ -423,9 +424,9 @@ function CalendarPage() {
                 <Button
                   variant="outline"
                   className="rounded-xl"
-                  onClick={() => setActiveTab("district_pdf")}
+                  onClick={() => setActiveTab("calendar_image")}
                 >
-                  {isSpanish ? "Ver Calendario PDF" : "View PDF Calendar"}
+                  {isSpanish ? "Ver Calendario Oficial" : "View Official Calendar"}
                 </Button>
                 <Button asChild className="rounded-xl">
                   <Link to="/eventos">{isSpanish ? "Explorar Eventos" : "Explore Events"}</Link>

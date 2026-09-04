@@ -6,6 +6,7 @@ import { readCache, writeCache, notifyContentUpdated } from "./sync";
 import { SEED_CATEGORIES, SEED_ARTICLES } from "./school-content-data";
 import { INITIAL_SCHOOLS } from "./school";
 import { INITIAL_LINCOLN_RESOURCES } from "./resources";
+import { SEED_CONTACTS } from "./directory";
 
 export type AppRole = "super_admin" | "admin" | "editor" | "translator" | "reviewer";
 
@@ -88,6 +89,29 @@ export async function listRows(
     } else if (name === "resources") {
       rows = INITIAL_LINCOLN_RESOURCES as unknown as Row[];
       writeCache("resources", rows);
+    }
+  }
+
+  // Enrich articles with translations from cache if missing
+  if (name === "articles") {
+    const allTranslations = readCache<Row>("article_translations") || [];
+    rows = rows.map((r) => {
+      const artTrs = allTranslations.filter((t) => String(t.article_id) === String(r.id));
+      const esTr = artTrs.find((t) => t.language_code === "es") || artTrs[0];
+      return {
+        ...r,
+        article_translations: artTrs.length > 0 ? artTrs : r.article_translations,
+        title: r.title || (esTr ? esTr.title : undefined),
+        summary: r.summary || (esTr ? esTr.summary : undefined),
+      };
+    });
+  }
+
+  // Default contacts if empty
+  if (name === "contacts") {
+    if (rows.length === 0) {
+      rows = SEED_CONTACTS as unknown as Row[];
+      writeCache("contacts", rows);
     }
   }
 

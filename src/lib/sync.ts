@@ -37,29 +37,22 @@ export const REALTIME_TABLES = [
   "broken_link_reports",
 ] as const;
 
-export function cacheKey(table: string) {
-  return `dmps_db_${table}`;
-}
+import {
+  cacheKey,
+  safeSetItem,
+  readFromUnifiedStorage,
+  writeToUnifiedStorage,
+  initUnifiedStorageEngine,
+} from "./storage-engine";
+
+export { cacheKey, safeSetItem };
 
 export function readCache<T = any>(table: string): T[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(cacheKey(table));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? (parsed as T[]) : null;
-  } catch {
-    return null;
-  }
+  return readFromUnifiedStorage<T>(table);
 }
 
 export function writeCache(table: string, rows: unknown) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(cacheKey(table), JSON.stringify(rows));
-  } catch {
-    // ignore quota errors
-  }
+  writeToUnifiedStorage(table, rows);
 }
 
 export function notifyContentUpdated(table?: string) {
@@ -74,6 +67,84 @@ export function notifyContentUpdated(table?: string) {
 export function useRealtimeContentSync() {
   const queryClient = useQueryClient();
 
+  // 0. Initialize and hydrate the unified persistent storage engine (IndexedDB + Server Disk)
+  useEffect(() => {
+    void initUnifiedStorageEngine(() => {
+      void queryClient.invalidateQueries();
+    });
+  }, [queryClient]);
+
+  // 1. In-browser instant event & cross-tab sync (always works whether Supabase is configured or local)
+  useEffect(() => {
+    let cancelled = false;
+
+    const handleLocalUpdate = (e: Event) => {
+      if (cancelled) return;
+      const custom = e as CustomEvent<{ table?: string }>;
+      const table = custom.detail?.table;
+
+      // Always invalidate the root queries to guarantee real-time UI updates
+      void queryClient.invalidateQueries();
+
+      if (table) {
+        void queryClient.invalidateQueries({ queryKey: [table] });
+        void queryClient.invalidateQueries({ queryKey: ["admin", table] });
+        if (table === "articles" || table === "article_translations") {
+          void queryClient.invalidateQueries({ queryKey: ["articles"] });
+          void queryClient.invalidateQueries({ queryKey: ["article"] });
+          void queryClient.invalidateQueries({ queryKey: ["published-articles"] });
+          void queryClient.invalidateQueries({ queryKey: ["admin", "articles"] });
+        }
+        if (table === "contacts") {
+          void queryClient.invalidateQueries({ queryKey: ["contacts"] });
+          void queryClient.invalidateQueries({ queryKey: ["admin", "contacts"] });
+        }
+        if (table === "categories" || table === "category_translations") {
+          void queryClient.invalidateQueries({ queryKey: ["categories"] });
+          void queryClient.invalidateQueries({ queryKey: ["category"] });
+          void queryClient.invalidateQueries({ queryKey: ["admin", "categories"] });
+        }
+        if (table === "announcements" || table === "announcement_translations") {
+          void queryClient.invalidateQueries({ queryKey: ["announcements"] });
+          void queryClient.invalidateQueries({ queryKey: ["admin", "announcements"] });
+        }
+        if (table === "events" || table === "event_translations") {
+          void queryClient.invalidateQueries({ queryKey: ["events"] });
+          void queryClient.invalidateQueries({ queryKey: ["public_calendar_events"] });
+          void queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+          void queryClient.invalidateQueries({ queryKey: ["admin", "events"] });
+        }
+        if (table === "activities" || table === "activity_translations") {
+          void queryClient.invalidateQueries({ queryKey: ["activities"] });
+          void queryClient.invalidateQueries({ queryKey: ["athletics"] });
+          void queryClient.invalidateQueries({ queryKey: ["admin", "activities"] });
+        }
+      }
+    };
+
+    // Listen to local content updates emitted by upsertRow, deleteRow, etc.
+    window.addEventListener("dmps_content_updated", handleLocalUpdate);
+
+    // Cross-tab synchronization via localStorage changes
+    const handleStorage = (e: StorageEvent) => {
+      if (cancelled) return;
+      if (e.key && e.key.startsWith("dmps_db_")) {
+        const table = e.key.replace("dmps_db_", "");
+        void queryClient.invalidateQueries();
+        void queryClient.invalidateQueries({ queryKey: [table] });
+        void queryClient.invalidateQueries({ queryKey: ["admin", table] });
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("dmps_content_updated", handleLocalUpdate);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [queryClient]);
+
+  // 2. Supabase postgres_changes real-time subscription
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
     let cancelled = false;
@@ -121,22 +192,13 @@ export function useRealtimeContentSync() {
 
 /**
  * Fuerza que los cambios guardados por el personal aparezcan de inmediato en el
- * sitio público: borra el caché local de todas las tablas, vuelve a pedir los
- * datos a la base y avisa a las pantallas abiertas en este dispositivo.
+ * sitio público: sincroniza el motor de almacenamiento persistente y avisa
+ * a todas las vistas abiertas sin borrar los datos del usuario.
  */
 export async function applyChangesNow(queryClient: {
   invalidateQueries: () => Promise<void> | void;
   refetchQueries: () => Promise<void> | void;
 }) {
-  if (typeof window !== "undefined") {
-    for (const table of REALTIME_TABLES) {
-      try {
-        localStorage.removeItem(cacheKey(table));
-      } catch {
-        // ignore
-      }
-    }
-  }
   await queryClient.invalidateQueries();
   await queryClient.refetchQueries();
   if (typeof window !== "undefined") {

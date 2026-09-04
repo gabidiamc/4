@@ -57,12 +57,16 @@ function AdminAparienciaPage() {
         show_wordmark: values.show_wordmark ?? true,
       };
       const saved = await upsertRow("appearance_settings", payload);
-      await logAudit(
-        "update",
-        "appearance_settings",
-        "default",
-        "Actualización de logotipos y apariencia",
-      );
+      try {
+        await logAudit(
+          "update",
+          "appearance_settings",
+          "default",
+          "Actualización de logotipos y apariencia",
+        );
+      } catch {
+        // ignore audit failure
+      }
       return saved;
     },
     onSuccess: (saved) => {

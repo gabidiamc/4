@@ -9,7 +9,7 @@ export function ArticleCard({ article }: { article: ArticleRow; category?: Categ
   const { t, lang } = useI18n();
   const locArticle = localizedArticle(article, lang);
   const cleanSummary = locArticle.summary?.replace(/<[^>]*>/g, "").replace(/\*\*(.*?)\*\*/g, "$1");
-  const bannerUrl = article.card_banner_url || null;
+  const bannerUrl = article.card_banner_url || article.featured_image_url || null;
   const cardBg = article.card_bg?.trim() || null;
 
   // Check if background might be dark

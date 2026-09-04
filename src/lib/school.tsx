@@ -282,14 +282,7 @@ export const CENTRAL_SCHOOL: School = {
   closetName: "Central Closet",
 };
 
-export const ALL_DEFINED_SCHOOLS: School[] = [
-  LINCOLN_SCHOOL,
-  EAST_SCHOOL,
-  ROOSEVELT_SCHOOL,
-  NORTH_SCHOOL,
-  HOOVER_SCHOOL,
-  CENTRAL_SCHOOL,
-];
+export const ALL_DEFINED_SCHOOLS: School[] = [LINCOLN_SCHOOL, EAST_SCHOOL];
 
 export const INITIAL_SCHOOLS: School[] = ALL_DEFINED_SCHOOLS;
 
@@ -298,10 +291,6 @@ export function getSchoolById(id: string | null | undefined, customList?: School
   if (!id) return LINCOLN_SCHOOL;
   const canonical = normalizeSchoolId(id);
   if (canonical === "east") return EAST_SCHOOL;
-  if (canonical === "roosevelt") return ROOSEVELT_SCHOOL;
-  if (canonical === "north") return NORTH_SCHOOL;
-  if (canonical === "hoover") return HOOVER_SCHOOL;
-  if (canonical === "central") return CENTRAL_SCHOOL;
   if (canonical === "lincoln") return LINCOLN_SCHOOL;
 
   const cleanId = String(id).toLowerCase().trim();

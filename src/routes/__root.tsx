@@ -21,6 +21,7 @@ import { OnboardingTutorial } from "@/components/onboarding-tutorial";
 import { FloatingAnnouncement } from "@/components/floating-announcement";
 import { FamilyHelpWidget } from "@/components/help/family-help-widget";
 import { LegacyServiceWorkerCleanup } from "@/components/legacy-sw-cleanup";
+import { CanvaSvgMaskDefs } from "@/components/canva-image-direct-editor";
 
 function NotFoundComponent() {
   return (
@@ -239,6 +240,7 @@ function RootComponent() {
             <SchoolSelectorModal />
             <FloatingAnnouncement />
             <FamilyHelpWidget />
+            <CanvaSvgMaskDefs />
 
             <Toaster />
           </SchoolProvider>

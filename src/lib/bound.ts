@@ -293,134 +293,206 @@ function findStoredRaw(baseKey: string, schoolId: string): string | null {
   return null;
 }
 
+import { readCache, writeCache, notifyContentUpdated } from "@/lib/sync";
+
 /** Reads the activities of one school from the database, localized when possible. */
 export async function fetchActivitiesForSchool(
   schoolId: SchoolId = "lincoln",
   lang: string = "es",
 ): Promise<BoundActivity[]> {
-  const { supabase } = await import("@/integrations/supabase/client");
-  const { data, error } = await supabase
-    .from("activities")
-    .select(
-      "id, name, slug, gender, season, grades, enrollment_open, official_url, forms_url, image_url, description, registration_info, status, school_id, verified_at, updated_at, activity_translations(language_code, name, description)",
-    )
-    .in("school_id", [schoolId, `sch-${schoolId}`])
-    .order("name", { ascending: true });
-  if (error) throw new Error(error.message);
   type TrRow = { language_code: string; name: string | null; description: string | null };
-  return ((data ?? []) as unknown as (ActivityDbRow & { activity_translations?: TrRow[] })[]).map(
-    (row) => {
-      const trs = row.activity_translations ?? [];
-      const tr =
-        trs.find((x) => x.language_code === lang) ?? trs.find((x) => x.language_code === "en");
-      const localized = tr
-        ? { ...row, name: tr.name || row.name, description: tr.description ?? row.description }
-        : row;
-      return toBoundActivity(localized);
-    },
+  const initial = getInitialActivitiesForSchool(schoolId);
+
+  try {
+    const { supabase, isSupabaseConfigured } = await import("@/integrations/supabase/client");
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from("activities")
+        .select(
+          "id, name, slug, gender, season, grades, enrollment_open, official_url, forms_url, image_url, description, registration_info, status, school_id, verified_at, updated_at, activity_translations(language_code, name, description)",
+        )
+        .in("school_id", [schoolId, `sch-${schoolId}`])
+        .order("name", { ascending: true });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        writeCache(`activities_${schoolId}`, data);
+        return (
+          (data ?? []) as unknown as (ActivityDbRow & { activity_translations?: TrRow[] })[]
+        ).map((row) => {
+          const trs = row.activity_translations ?? [];
+          const tr =
+            trs.find((x) => x.language_code === lang) ?? trs.find((x) => x.language_code === "en");
+          const localized = tr
+            ? { ...row, name: tr.name || row.name, description: tr.description ?? row.description }
+            : row;
+          return toBoundActivity(localized);
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[Bound] Supabase fetch activities notice:", err);
+  }
+
+  // Fallback to unified persistent storage
+  const cached =
+    readCache<ActivityDbRow>(`activities_${schoolId}`) ?? readCache<ActivityDbRow>("activities");
+
+  if (cached && Array.isArray(cached) && cached.length > 0) {
+    const filtered = cached.filter(
+      (r) =>
+        !r.school_id ||
+        r.school_id === schoolId ||
+        r.school_id === `sch-${schoolId}` ||
+        r.school_id === "all",
+    );
+    if (filtered.length > 0) {
+      return filtered.map((row) => toBoundActivity(row));
+    }
+  }
+
+  // Initial seed activities
+  writeCache(
+    `activities_${schoolId}`,
+    initial.map((a) => toActivityDbRow(a, schoolId)),
   );
+  return initial;
 }
 
-/** Saves the activities of one school to the database (visible on every device). */
+/** Saves the activities of one school to persistent storage (survives reload & visible everywhere). */
 export async function saveActivitiesForSchool(
   activities: BoundActivity[],
   schoolId: SchoolId = "lincoln",
 ) {
-  const { supabase } = await import("@/integrations/supabase/client");
   const rows = activities.map((a) => toActivityDbRow(a, schoolId));
-  const { error } = await supabase.from("activities").upsert(rows, { onConflict: "id" });
-  if (error) throw new Error(error.message);
+
+  // 1. Immediately persist to Unified Storage (Memory, LocalStorage, IndexedDB, Server Disk)
+  writeCache(`activities_${schoolId}`, rows);
+  writeCache("activities", rows);
+  notifyContentUpdated("activities");
+
+  // 2. Try remote Supabase upsert if configured
+  try {
+    const { supabase, isSupabaseConfigured } = await import("@/integrations/supabase/client");
+    if (isSupabaseConfigured()) {
+      const { error } = await supabase.from("activities").upsert(rows, { onConflict: "id" });
+      if (error) console.warn("[Bound] Supabase activities upsert note:", error.message);
+    }
+  } catch (err) {
+    console.warn("[Bound] Background Supabase save note:", err);
+  }
 }
 
 /** Deletes one activity of a school from the database. */
 export async function deleteActivity(id: string) {
-  const { supabase } = await import("@/integrations/supabase/client");
-  const { error } = await supabase.from("activities").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const current = readCache<ActivityDbRow>("activities") ?? [];
+  const updated = current.filter((a) => a.id !== id);
+  writeCache("activities", updated);
+  notifyContentUpdated("activities");
+
+  try {
+    const { supabase, isSupabaseConfigured } = await import("@/integrations/supabase/client");
+    if (isSupabaseConfigured()) {
+      await supabase.from("activities").delete().eq("id", id);
+    }
+  } catch {
+    // ignore
+  }
 }
 
 export function getStoredTeams(schoolId: SchoolId = "lincoln"): BoundTeam[] {
   const initial = getInitialTeamsForSchool(schoolId);
   if (typeof window === "undefined") return initial;
 
+  const key = `bound_teams_${schoolId}`;
+  const fromStore = readCache<BoundTeam>(key);
+  if (fromStore && Array.isArray(fromStore) && fromStore.length > 0) {
+    return fromStore;
+  }
+
   try {
     const raw = findStoredRaw("teams", schoolId);
-    if (!raw) {
-      const key = `${STORAGE_TEAMS_KEY}_${schoolId}`;
-      localStorage.setItem(key, JSON.stringify(initial));
-      return initial;
+    if (raw) {
+      const storedList: BoundTeam[] = JSON.parse(raw);
+      if (Array.isArray(storedList) && storedList.length > 0) {
+        const mergedMap = new Map<string, BoundTeam>();
+        for (const item of initial) mergedMap.set(item.id, item);
+        for (const stored of storedList) {
+          if (!stored.id) continue;
+          const existing = mergedMap.get(stored.id);
+          mergedMap.set(stored.id, existing ? { ...existing, ...stored } : stored);
+        }
+        const result = Array.from(mergedMap.values());
+        writeCache(key, result);
+        return result;
+      }
     }
-
-    const storedList: BoundTeam[] = JSON.parse(raw);
-    if (!Array.isArray(storedList) || storedList.length === 0) return initial;
-
-    const mergedMap = new Map<string, BoundTeam>();
-    for (const item of initial) mergedMap.set(item.id, item);
-    for (const stored of storedList) {
-      if (!stored.id) continue;
-      const existing = mergedMap.get(stored.id);
-      mergedMap.set(stored.id, existing ? { ...existing, ...stored } : stored);
-    }
-
-    const result = Array.from(mergedMap.values());
-    const key = `${STORAGE_TEAMS_KEY}_${schoolId}`;
-    localStorage.setItem(key, JSON.stringify(result));
-    return result;
   } catch {
-    return initial;
+    // ignore
   }
+
+  writeCache(key, initial);
+  return initial;
 }
 
 export function saveStoredTeams(teams: BoundTeam[], schoolId: SchoolId = "lincoln") {
   if (typeof window === "undefined") return;
+  const key = `bound_teams_${schoolId}`;
+  writeCache(key, teams);
   try {
-    const key = `${STORAGE_TEAMS_KEY}_${schoolId}`;
-    localStorage.setItem(key, JSON.stringify(teams));
+    const storageKey = `${STORAGE_TEAMS_KEY}_${schoolId}`;
+    localStorage.setItem(storageKey, JSON.stringify(teams));
   } catch (e) {
-    console.error("Failed to save teams:", e);
+    console.warn("Failed to save teams in localStorage:", e);
   }
+  notifyContentUpdated("bound_teams");
 }
 
 export function getStoredEvents(schoolId: SchoolId = "lincoln"): BoundEvent[] {
   const initial = getInitialEventsForSchool(schoolId);
   if (typeof window === "undefined") return initial;
 
+  const key = `bound_events_${schoolId}`;
+  const fromStore = readCache<BoundEvent>(key);
+  if (fromStore && Array.isArray(fromStore) && fromStore.length > 0) {
+    return fromStore;
+  }
+
   try {
     const raw = findStoredRaw("events", schoolId);
-    if (!raw) {
-      const key = `${STORAGE_EVENTS_KEY}_${schoolId}`;
-      localStorage.setItem(key, JSON.stringify(initial));
-      return initial;
+    if (raw) {
+      const storedList: BoundEvent[] = JSON.parse(raw);
+      if (Array.isArray(storedList) && storedList.length > 0) {
+        const mergedMap = new Map<string, BoundEvent>();
+        for (const item of initial) mergedMap.set(item.id, item);
+        for (const stored of storedList) {
+          if (!stored.id) continue;
+          const existing = mergedMap.get(stored.id);
+          mergedMap.set(stored.id, existing ? { ...existing, ...stored } : stored);
+        }
+        const result = Array.from(mergedMap.values());
+        writeCache(key, result);
+        return result;
+      }
     }
-
-    const storedList: BoundEvent[] = JSON.parse(raw);
-    if (!Array.isArray(storedList) || storedList.length === 0) return initial;
-
-    const mergedMap = new Map<string, BoundEvent>();
-    for (const item of initial) mergedMap.set(item.id, item);
-    for (const stored of storedList) {
-      if (!stored.id) continue;
-      const existing = mergedMap.get(stored.id);
-      mergedMap.set(stored.id, existing ? { ...existing, ...stored } : stored);
-    }
-
-    const result = Array.from(mergedMap.values());
-    const key = `${STORAGE_EVENTS_KEY}_${schoolId}`;
-    localStorage.setItem(key, JSON.stringify(result));
-    return result;
   } catch {
-    return initial;
+    // ignore
   }
+
+  writeCache(key, initial);
+  return initial;
 }
 
 export function saveStoredEvents(events: BoundEvent[], schoolId: SchoolId = "lincoln") {
   if (typeof window === "undefined") return;
+  const key = `bound_events_${schoolId}`;
+  writeCache(key, events);
   try {
-    const key = `${STORAGE_EVENTS_KEY}_${schoolId}`;
-    localStorage.setItem(key, JSON.stringify(events));
+    const storageKey = `${STORAGE_EVENTS_KEY}_${schoolId}`;
+    localStorage.setItem(storageKey, JSON.stringify(events));
   } catch (e) {
-    console.error("Failed to save events:", e);
+    console.warn("Failed to save events in localStorage:", e);
   }
+  notifyContentUpdated("bound_events");
 }
 
 export function getStoredRegistrationSettings(
@@ -429,19 +501,26 @@ export function getStoredRegistrationSettings(
   const initial = getInitialRegistrationSettingsForSchool(schoolId);
   if (typeof window === "undefined") return initial;
 
+  const key = `bound_settings_${schoolId}`;
+  const fromStore = readCache<RegistrationSettings>(key);
+  if (fromStore && fromStore.length > 0) {
+    return fromStore[0];
+  }
+
   try {
     const raw = findStoredRaw("registration_settings", schoolId);
-    if (!raw) {
-      const key = `${STORAGE_SETTINGS_KEY}_${schoolId}`;
-      localStorage.setItem(key, JSON.stringify(initial));
-      return initial;
+    if (raw) {
+      const stored = JSON.parse(raw);
+      const merged = { ...initial, ...stored };
+      writeCache(key, [merged]);
+      return merged;
     }
-
-    const stored = JSON.parse(raw);
-    return { ...initial, ...stored };
   } catch {
-    return initial;
+    // ignore
   }
+
+  writeCache(key, [initial]);
+  return initial;
 }
 
 export function saveStoredRegistrationSettings(
@@ -449,12 +528,15 @@ export function saveStoredRegistrationSettings(
   schoolId: SchoolId = "lincoln",
 ) {
   if (typeof window === "undefined") return;
+  const key = `bound_settings_${schoolId}`;
+  writeCache(key, [settings]);
   try {
-    const key = `${STORAGE_SETTINGS_KEY}_${schoolId}`;
-    localStorage.setItem(key, JSON.stringify(settings));
+    const storageKey = `${STORAGE_SETTINGS_KEY}_${schoolId}`;
+    localStorage.setItem(storageKey, JSON.stringify(settings));
   } catch (e) {
-    console.error("Failed to save settings:", e);
+    console.warn("Failed to save settings in localStorage:", e);
   }
+  notifyContentUpdated("bound_settings");
 }
 
 export function getStoredSyncLogs(): BoundSyncLog[] {

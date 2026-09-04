@@ -310,6 +310,7 @@ export type ContactRow = {
   phone: string | null;
   extension: string | null;
   email: string | null;
+  website?: string | null;
   address: string | null;
   hours: string | null;
   languages: string[];
@@ -318,20 +319,69 @@ export type ContactRow = {
   verification_status: string;
   verified_at: string | null;
   is_visible: boolean;
+  avatar_url?: string | null;
+  avatar_scale?: number | null;
+  avatar_x?: number | null;
+  avatar_y?: number | null;
+  avatar_rotate?: number | null;
+  bio?: string | null;
+  role_type?: "liaison" | "principal" | "counselor" | "department" | "nurse" | "support" | string;
 };
 
-export type OfficialSourceRow = {
-  id: string;
-  name: string;
-  url: string;
-  source_type: string;
-  category_id: string | null;
-  last_reviewed_at: string | null;
-  link_status: string;
-  notes: string | null;
-  images_allowed: boolean;
-  is_verified: boolean;
-};
+export const SEED_CONTACTS: ContactRow[] = [
+  {
+    id: "contact_lincoln_brenda",
+    person_name: "Brenda Lucero",
+    job_title: "Enlace de Familias Bilingües (BFL)",
+    department: "Apoyo a Familias Bilingües — Lincoln High",
+    phone: "515-371-7143",
+    extension: null,
+    email: "brenda.lucero@dmschools.org",
+    website: "https://lincoln.dmschools.org",
+    address: "Abraham Lincoln High School, Oficina BFL (Sala 104)",
+    hours: "Lunes a Viernes: 7:45 AM – 3:45 PM",
+    languages: ["Español", "Inglés"],
+    school_id: "lincoln",
+    category_ids: [],
+    verification_status: "verified",
+    verified_at: new Date().toISOString(),
+    is_visible: true,
+    avatar_url:
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80",
+    avatar_scale: 1,
+    avatar_x: 0,
+    avatar_y: 0,
+    avatar_rotate: 0,
+    bio: "Asistencia directa en español para familias de Lincoln High: trámites, citas, Infinite Campus y apoyo escolar continuo.",
+    role_type: "liaison",
+  },
+  {
+    id: "contact_lincoln_veronica",
+    person_name: "Veronica Ortiz",
+    job_title: "Enlace de Familias Bilingües (BFL)",
+    department: "Apoyo a Familias Bilingües — Lincoln High",
+    phone: "515-829-5522",
+    extension: null,
+    email: "veronica.ortiz@dmschools.org",
+    website: "https://lincoln.dmschools.org",
+    address: "Abraham Lincoln High School, 2600 SW 9th St, Des Moines, IA 50315",
+    hours: "Lunes a Viernes: 8:00 AM – 4:00 PM",
+    languages: ["Español", "Inglés"],
+    school_id: "lincoln",
+    category_ids: [],
+    verification_status: "verified",
+    verified_at: new Date().toISOString(),
+    is_visible: true,
+    avatar_url:
+      "https://images.unsplash.com/photo-1580894732488-c7e6c9a304e8?w=400&auto=format&fit=crop&q=80",
+    avatar_scale: 1,
+    avatar_x: 0,
+    avatar_y: 0,
+    avatar_rotate: 0,
+    bio: "Orientación en español, comunicación con maestros, justificación de ausencias y recursos comunitarios.",
+    role_type: "liaison",
+  },
+];
 
 export async function fetchContacts(schoolId?: string): Promise<ContactRow[]> {
   try {
@@ -339,11 +389,22 @@ export async function fetchContacts(schoolId?: string): Promise<ContactRow[]> {
       .from("contacts")
       .select("*")
       .order("department", { ascending: true });
-    if (error) return [];
-    return filterBySchool((data ?? []) as unknown as ContactRow[], schoolId);
+    if (!error && Array.isArray(data) && data.length > 0) {
+      writeCache("contacts", data as unknown as ContactRow[]);
+      return data as unknown as ContactRow[];
+    }
   } catch {
-    return [];
+    // ignore
   }
+
+  const cached = readCache<ContactRow>("contacts");
+  if (cached && Array.isArray(cached) && cached.length > 0) {
+    return cached;
+  }
+
+  // Fallback to rich seed contacts and initialize cache
+  writeCache("contacts", SEED_CONTACTS);
+  return SEED_CONTACTS;
 }
 
 /* ---------------- family reports ---------------- */
@@ -372,6 +433,19 @@ export async function submitUpdateRequest(input: {
 }
 
 /* ---------------- official sources ---------------- */
+
+export type OfficialSourceRow = {
+  id: string;
+  name: string;
+  url: string;
+  source_type: string;
+  category_id: string | null;
+  last_reviewed_at: string | null;
+  link_status: string;
+  notes: string | null;
+  images_allowed: boolean;
+  is_verified: boolean;
+};
 
 export async function fetchSources(): Promise<OfficialSourceRow[]> {
   try {

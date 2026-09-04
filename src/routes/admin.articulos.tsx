@@ -26,8 +26,10 @@ import {
   Layers,
   ArrowRight,
   Info,
+  Save,
+  Loader2,
 } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { toast } from "sonner";
 
 import { VisualRichEditor } from "@/components/admin/visual-rich-editor";
@@ -52,6 +54,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/lib/school";
 import { deleteRow, listRows, logAudit, upsertRow, type Row } from "@/lib/admin";
+import { notifyContentUpdated, readCache, writeCache } from "@/lib/sync";
 import { computeContentStatus, formatDesMoinesDate } from "@/lib/content-lifecycle";
 
 export const Route = createFileRoute("/admin/articulos")({
@@ -194,12 +197,35 @@ function ArticlesAdmin() {
     mutationFn: async ({ id, archive }: { id: string; archive: boolean }) => {
       const newStatus = archive ? "archived" : "published";
       await upsertRow("articles", { id, status: newStatus, updated_at: new Date().toISOString() });
-      await logAudit("update", "articles", id, archive ? "Archivado lógico" : "Restaurado");
+      try {
+        await logAudit("update", "articles", id, archive ? "Archivado lógico" : "Restaurado");
+      } catch {
+        // ignore
+      }
     },
     onSuccess: (_, v) => {
       toast.success(
         v.archive ? "Artículo archivado lógicamente." : "Artículo restaurado a publicado.",
       );
+      void queryClient.invalidateQueries({ queryKey: ["admin", "articles"] });
+      void queryClient.invalidateQueries({ queryKey: ["articles"] });
+      void queryClient.invalidateQueries({ queryKey: ["published-articles"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Permanent Delete Mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await deleteRow("articles", id);
+      try {
+        await logAudit("delete", "articles", id, "Eliminado permanentemente");
+      } catch {
+        // ignore
+      }
+    },
+    onSuccess: () => {
+      toast.success("Artículo eliminado con éxito de la base de datos y la página pública.");
       void queryClient.invalidateQueries({ queryKey: ["admin", "articles"] });
       void queryClient.invalidateQueries({ queryKey: ["articles"] });
       void queryClient.invalidateQueries({ queryKey: ["published-articles"] });
@@ -221,7 +247,11 @@ function ArticlesAdmin() {
         updated_at: new Date().toISOString(),
       };
       await upsertRow("articles", duplicated);
-      await logAudit("create", "articles", newId, "Duplicado como borrador");
+      try {
+        await logAudit("create", "articles", newId, "Duplicado como borrador");
+      } catch {
+        // ignore
+      }
       return duplicated;
     },
     onSuccess: (dupe) => {
@@ -508,6 +538,27 @@ function ArticlesAdmin() {
                             <Archive className="size-4" />
                           </Button>
                         )}
+
+                        {/* Permanent Delete */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          title="Eliminar permanentemente de la base de datos"
+                          onClick={() =>
+                            setConfirmConfig({
+                              title: "¿Eliminar artículo permanentemente?",
+                              description: `Se borrará el artículo "${row["title"]}" por completo. Esta acción no se puede deshacer y se reflejará al instante en la página pública.`,
+                              consequence:
+                                "Se eliminará inmediatamente sin necesidad de recargar la página.",
+                              confirmText: "Eliminar definitivamente",
+                              variant: "danger",
+                              onConfirm: () => deleteMutation.mutateAsync(String(row["id"])),
+                            })
+                          }
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -568,17 +619,37 @@ function ArticleStepEditorModal({
   const [activeStep, setActiveStep] = useState<number>(1);
   const [lang, setLang] = useState("es");
 
+  // Initial Content Calculation
+  const initialTitle = String(editingRow["title"] || editingRow["name"] || "");
+  const initialSummary = String(editingRow["summary"] || "");
+  const initialHtml = (() => {
+    if (editingRow["bodyHtml"]) return String(editingRow["bodyHtml"]);
+    if (editingRow["content"]) return String(editingRow["content"]);
+    if (
+      Array.isArray(editingRow["article_translations"]) &&
+      editingRow["article_translations"].length > 0
+    ) {
+      const tr =
+        editingRow["article_translations"].find((t: any) => t.language_code === "es") ||
+        editingRow["article_translations"][0];
+      return tr.content_blocks
+        ? blocksToHtml(tr.content_blocks)
+        : String(tr.body || tr.content || "");
+    }
+    return "";
+  })();
+
   // Form Fields
-  const [title, setTitle] = useState("");
-  const [summary, setSummary] = useState("");
-  const [bodyHtml, setBodyHtml] = useState("");
+  const [title, setTitle] = useState(initialTitle);
+  const [summary, setSummary] = useState(initialSummary);
+  const [bodyHtml, setBodyHtml] = useState(initialHtml);
   const [schoolId, setSchoolId] = useState(
     String(
       editingRow["school_id"] ||
         (adminSchoolFilter === "east"
-          ? "sch-east"
+          ? "east"
           : adminSchoolFilter === "lincoln"
-            ? "sch-lincoln"
+            ? "lincoln"
             : "all"),
     ),
   );
@@ -587,7 +658,10 @@ function ArticleStepEditorModal({
   const [newCategoryName, setNewCategoryName] = useState("");
 
   // Dates
-  const [startsAt, setStartsAt] = useState(String(editingRow["starts_at"] || "").slice(0, 10));
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+  const [startsAt, setStartsAt] = useState(
+    String(editingRow["starts_at"] || todayDateStr).slice(0, 10) || todayDateStr,
+  );
   const [endsAt, setEndsAt] = useState(String(editingRow["ends_at"] || "").slice(0, 10));
   const [isPermanent, setIsPermanent] = useState(!editingRow["ends_at"]);
 
@@ -595,17 +669,19 @@ function ArticleStepEditorModal({
   const [sourceName, setSourceName] = useState(String(editingRow["source_name"] || ""));
   const [officialUrl, setOfficialUrl] = useState(String(editingRow["official_url"] || ""));
   const [verifiedAt, setVerifiedAt] = useState(
-    String(editingRow["verified_at"] || "").slice(0, 10),
+    String(editingRow["verified_at"] || todayDateStr).slice(0, 10) || todayDateStr,
   );
   const [adminNote, setAdminNote] = useState(String(editingRow["admin_note"] || ""));
 
   // Publishing & Media
   const [slug, setSlug] = useState(String(editingRow["slug"] || ""));
-  const [status, setStatus] = useState(String(editingRow["status"] || "draft"));
+  const [status, setStatus] = useState(String(editingRow["status"] || "published"));
   const [featuredImage, setFeaturedImage] = useState(
-    String(editingRow["featured_image_url"] || ""),
+    String(editingRow["featured_image_url"] || editingRow["card_banner_url"] || ""),
   );
-  const [cardBanner, setCardBanner] = useState(String(editingRow["card_banner_url"] || ""));
+  const [cardBanner, setCardBanner] = useState(
+    String(editingRow["card_banner_url"] || editingRow["featured_image_url"] || ""),
+  );
   const [cardBg, setCardBg] = useState(String(editingRow["card_bg"] || ""));
   const [imageAlt, setImageAlt] = useState(String(editingRow["image_alt"] || ""));
   const [isFeatured, setIsFeatured] = useState(Boolean(editingRow["is_featured"]));
@@ -615,48 +691,54 @@ function ArticleStepEditorModal({
   const [previewData, setPreviewData] = useState<any>(null);
   const [permanentConfirmOpen, setPermanentConfirmOpen] = useState(false);
 
-  // Load translations
+  // Track if we loaded language switch
+  const lastLoadedLangRef = useRef<string>("es");
+
+  // Load translations on explicit language switch only
   useEffect(() => {
+    if (lastLoadedLangRef.current === lang) return;
+    lastLoadedLangRef.current = lang;
+
     let isMounted = true;
-    async function loadData() {
-      let trTitle = String(editingRow["title"] || editingRow["name"] || "");
-      let trSummary = String(editingRow["summary"] || "");
-      let trHtml = "";
+    async function loadLangData() {
+      if (!articleId) return;
+      let localTrs: any[] = Array.isArray(editingRow["article_translations"])
+        ? editingRow["article_translations"]
+        : [];
 
-      if (articleId) {
-        let localTrs: any[] = Array.isArray(editingRow["article_translations"])
-          ? editingRow["article_translations"]
-          : [];
-
-        if (localTrs.length === 0) {
-          try {
-            const { data } = await (supabase as any)
-              .from("article_translations")
-              .select("*")
-              .eq("article_id", articleId);
-            if (Array.isArray(data) && data.length > 0) localTrs = data;
-          } catch (err) {
-            void err;
+      if (localTrs.length === 0) {
+        try {
+          const raw = localStorage.getItem("dmps_db_article_translations");
+          if (raw) {
+            const all = JSON.parse(raw);
+            localTrs = all.filter((r: any) => r.article_id === articleId);
           }
-        }
-
-        const tr = localTrs.find((t) => t.language_code === lang) || localTrs[0];
-        if (tr) {
-          trTitle = tr.title || trTitle;
-          trSummary = tr.summary || trSummary;
-          trHtml = tr.content_blocks
-            ? blocksToHtml(tr.content_blocks)
-            : tr.body || tr.content || trHtml;
+        } catch {
+          // ignore
         }
       }
 
-      if (isMounted) {
-        setTitle(trTitle);
-        setSummary(trSummary);
-        setBodyHtml(trHtml);
+      if (localTrs.length === 0) {
+        try {
+          const { data } = await (supabase as any)
+            .from("article_translations")
+            .select("*")
+            .eq("article_id", articleId);
+          if (Array.isArray(data) && data.length > 0) localTrs = data;
+        } catch (err) {
+          void err;
+        }
+      }
+
+      const tr = localTrs.find((t) => t.language_code === lang);
+      if (tr && isMounted) {
+        if (tr.title) setTitle(tr.title);
+        if (tr.summary) setSummary(tr.summary);
+        if (tr.content_blocks) setBodyHtml(blocksToHtml(tr.content_blocks));
+        else if (tr.body || tr.content) setBodyHtml(tr.body || tr.content);
       }
     }
-    loadData();
+    loadLangData();
     return () => {
       isMounted = false;
     };
@@ -720,6 +802,7 @@ function ArticleStepEditorModal({
           .replace(/[^a-z0-9]+/g, "") ||
         `articulo${Date.now()}`;
 
+      const bannerUrlFinal = cardBanner.trim() || null;
       const articleData = {
         id: articleId || `art_${Date.now()}`,
         slug: finalSlug,
@@ -729,8 +812,8 @@ function ArticleStepEditorModal({
         summary: summary.trim(),
         status: status || "published",
         is_featured: isFeatured,
-        featured_image_url: featuredImage.trim() || null,
-        card_banner_url: cardBanner.trim() || null,
+        featured_image_url: bannerUrlFinal,
+        card_banner_url: bannerUrlFinal,
         card_bg: cardBg.trim() || null,
         image_alt: imageAlt.trim() || null,
         starts_at: startsAt ? `${startsAt}T00:00:00` : null,
@@ -765,34 +848,37 @@ function ArticleStepEditorModal({
         console.warn("[article_translations exception]", trErr);
       }
 
-      // Update local storage cache for translations
+      // Update local storage cache for translations safely
       if (typeof window !== "undefined") {
-        const raw = localStorage.getItem("dmps_db_article_translations");
-        let allTrs: any[] = [];
-        if (raw) {
-          try {
-            allTrs = JSON.parse(raw);
-          } catch {
-            allTrs = [];
-          }
-        }
-        const idx = allTrs.findIndex(
+        const cachedTrs = readCache<any>("article_translations") ?? [];
+        const idx = cachedTrs.findIndex(
           (r) => r.article_id === newArticleId && r.language_code === lang,
         );
-        if (idx >= 0) allTrs[idx] = { ...allTrs[idx], ...trBody };
-        else allTrs.push(trBody);
-        localStorage.setItem("dmps_db_article_translations", JSON.stringify(allTrs));
+        let allTrs: any[];
+        if (idx >= 0) {
+          allTrs = [...cachedTrs];
+          allTrs[idx] = { ...allTrs[idx], ...trBody };
+        } else {
+          allTrs = [trBody, ...cachedTrs];
+        }
+        writeCache("article_translations", allTrs);
+        notifyContentUpdated("articles");
+        notifyContentUpdated("article_translations");
       }
 
       // Log audit
-      await logAudit(
-        articleId ? "update" : "create",
-        "articles",
-        newArticleId,
-        `Artículo ${status === "published" ? "publicado" : "guardado como borrador"}`,
-      );
+      try {
+        await logAudit(
+          articleId ? "update" : "create",
+          "articles",
+          newArticleId,
+          `Artículo ${status === "published" ? "publicado" : "guardado como borrador"}`,
+        );
+      } catch (auditErr) {
+        console.warn("[audit log error]", auditErr);
+      }
 
-      toast.success("Artículo guardado y validado correctamente.");
+      toast.success("¡Artículo guardado y sincronizado en vivo exitosamente!");
       onSuccess();
     } catch (e: any) {
       toast.error(e.message || "Error al guardar el artículo");
@@ -809,8 +895,12 @@ function ArticleStepEditorModal({
   ];
 
   return (
-    <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-h-[94dvh] overflow-y-auto sm:max-w-4xl lg:max-w-6xl p-0 gap-0 rounded-2xl">
+    <Dialog open onOpenChange={(open) => !isSaving && !open && onClose()}>
+      <DialogContent
+        onPointerDownOutside={(e) => isSaving && e.preventDefault()}
+        onEscapeKeyDown={(e) => isSaving && e.preventDefault()}
+        className="max-h-[94dvh] overflow-y-auto sm:max-w-4xl lg:max-w-6xl p-0 gap-0 rounded-2xl"
+      >
         {/* Modal Header */}
         <div className="p-6 border-b border-border/80 bg-muted/20">
           <div className="flex items-center justify-between">
@@ -1217,30 +1307,6 @@ function ArticleStepEditorModal({
                   placeholder="Redacta el contenido informativo. Puedes usar negritas, listas, subtítulos y cajas destacadas..."
                 />
               </div>
-
-              {/* Featured Image & Alt */}
-              <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-3">
-                <label className="text-xs font-bold uppercase tracking-wider text-foreground block">
-                  Imagen interna y accesibilidad (Opcional)
-                </label>
-                <FileUploadInput
-                  id="featured-image-input"
-                  value={featuredImage}
-                  onChange={setFeaturedImage}
-                  helperText="Imagen mostrada dentro del artículo al abrirlo."
-                  placeholder="https://... o sube una imagen"
-                  accept="image/*"
-                />
-
-                <div>
-                  <Input
-                    placeholder="Texto alternativo de accesibilidad (Alt)"
-                    value={imageAlt}
-                    onChange={(e) => setImageAlt(e.target.value)}
-                    className="h-9 rounded-lg text-xs"
-                  />
-                </div>
-              </div>
             </div>
           )}
 
@@ -1432,17 +1498,40 @@ function ArticleStepEditorModal({
           <Button
             type="button"
             variant="ghost"
+            disabled={isSaving}
             className="min-h-11 rounded-xl text-muted-foreground"
             onClick={onClose}
           >
             Cancelar
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Quick save button accessible at any step */}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSaving || !title.trim()}
+              className="min-h-11 rounded-xl font-bold px-4 border-primary/30 text-primary hover:bg-primary/10"
+              onClick={() => handleValidateAndSave()}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-2" />
+                  <span>Guardando...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="size-4 mr-1.5" />
+                  <span>Guardar Cambios</span>
+                </>
+              )}
+            </Button>
+
             {activeStep > 1 && (
               <Button
                 type="button"
                 variant="outline"
+                disabled={isSaving}
                 className="min-h-11 rounded-xl"
                 onClick={() => setActiveStep(activeStep - 1)}
               >
@@ -1453,6 +1542,7 @@ function ArticleStepEditorModal({
             {activeStep < 4 ? (
               <Button
                 type="button"
+                disabled={isSaving}
                 className="min-h-11 rounded-xl font-bold px-6"
                 onClick={() => setActiveStep(activeStep + 1)}
               >
@@ -1462,11 +1552,18 @@ function ArticleStepEditorModal({
             ) : (
               <Button
                 type="button"
-                disabled={isSaving}
-                className="min-h-11 rounded-xl font-bold px-8 shadow-soft"
+                disabled={isSaving || !title.trim()}
+                className="min-h-11 rounded-xl font-bold px-8 shadow-soft bg-primary text-white hover:bg-primary/90"
                 onClick={() => handleValidateAndSave()}
               >
-                {isSaving ? "Guardando…" : "Guardar y Validar"}
+                {isSaving ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin mr-2" />
+                    <span>Guardando y Sincronizando...</span>
+                  </>
+                ) : (
+                  <span>Guardar y Validar</span>
+                )}
               </Button>
             )}
           </div>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, ArrowRight, Info, Megaphone } from "lucide-react";
 
@@ -24,10 +25,11 @@ const STYLES = {
 
 export function AnnouncementCard({ announcement }: { announcement: AnnouncementRow }) {
   const { lang, t } = useI18n();
+  const [imageError, setImageError] = useState(false);
   const { title, message } = localizedAnnouncement(announcement, lang);
   const style = STYLES[announcement.level];
   const Icon = style.Icon;
-  const bannerUrl = announcement.card_banner_url || null;
+  const bannerUrl = !imageError ? announcement.card_banner_url || null : null;
   const cardBg = announcement.card_bg?.trim() || null;
   const isDarkBg =
     cardBg &&
@@ -52,6 +54,7 @@ export function AnnouncementCard({ announcement }: { announcement: AnnouncementR
             className="w-full h-auto max-h-[600px] object-cover transition-transform duration-300 hover:scale-[1.02] rounded-t-2xl"
             loading="lazy"
             referrerPolicy="no-referrer"
+            onError={() => setImageError(true)}
           />
         </div>
       )}

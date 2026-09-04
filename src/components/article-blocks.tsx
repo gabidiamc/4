@@ -111,7 +111,7 @@ export function ArticleBlocks({ blocks }: { blocks: Block[] }) {
             return (
               <div
                 key={key}
-                className="clear-both leading-relaxed font-sans text-foreground/90 transition-colors"
+                className="article-rendered-content clear-both leading-relaxed font-sans text-foreground/90 transition-colors"
                 style={{
                   color: block.color || undefined,
                   backgroundColor: block.bgColor || undefined,
@@ -123,7 +123,7 @@ export function ArticleBlocks({ blocks }: { blocks: Block[] }) {
                         ? "1.2rem"
                         : block.fontSize === "xl"
                           ? "1.35rem"
-                          : "1.125rem",
+                          : undefined,
                   padding: block.bgColor ? "1rem" : undefined,
                   borderRadius: block.bgColor ? "1rem" : undefined,
                 }}
@@ -146,7 +146,14 @@ export function ArticleBlocks({ blocks }: { blocks: Block[] }) {
                     />
                   ))}
 
-                {isHtml ? <div dangerouslySetInnerHTML={{ __html: html }} /> : <p>{textContent}</p>}
+                {isHtml ? (
+                  <div
+                    className="article-rendered-content"
+                    dangerouslySetInnerHTML={{ __html: html }}
+                  />
+                ) : (
+                  <p>{textContent}</p>
+                )}
                 <div className="clear-both" />
               </div>
             );

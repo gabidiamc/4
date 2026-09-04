@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FieldInput, type Field } from "./field-input";
 import { TranslationsEditor } from "./translations-editor";
 import { deleteRow, listRows, logAudit, upsertRow, type Row } from "@/lib/admin";
+import { notifyContentUpdated } from "@/lib/sync";
 import { useSchool } from "@/lib/school";
 import { normalizeSchoolId } from "@/lib/school-scope";
 
@@ -93,26 +94,39 @@ export function CrudManager({
   const save = useMutation({
     mutationFn: async (values: Row) => {
       const saved = await upsertRow(table, values);
-      await logAudit(values["id"] ? "update" : "create", table, saved["id"] as string);
+      try {
+        await logAudit(values["id"] ? "update" : "create", table, saved["id"] as string);
+      } catch {
+        // ignore audit failure
+      }
       return saved;
     },
     onSuccess: () => {
-      toast.success("Guardado");
+      toast.success("¡Guardado y sincronizado en vivo exitosamente!");
+      notifyContentUpdated(table);
       setEditing(null);
       void queryClient.invalidateQueries({ queryKey: ["admin", table] });
+      void queryClient.invalidateQueries({ queryKey: [table] });
       void queryClient.invalidateQueries();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message || "Error al guardar los cambios"),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
       await deleteRow(table, id);
-      await logAudit("delete", table, id);
+      try {
+        await logAudit("delete", table, id);
+      } catch {
+        // ignore audit failure
+      }
     },
     onSuccess: () => {
-      toast.success("Eliminado");
+      toast.success("Eliminado correctamente.");
+      notifyContentUpdated(table);
       void queryClient.invalidateQueries({ queryKey: key });
+      void queryClient.invalidateQueries({ queryKey: [table] });
+      void queryClient.invalidateQueries();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -234,8 +248,15 @@ export function CrudManager({
         </div>
       )}
 
-      <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+      <Dialog
+        open={editing !== null}
+        onOpenChange={(o) => !save.isPending && !o && setEditing(null)}
+      >
+        <DialogContent
+          onPointerDownOutside={(e) => save.isPending && e.preventDefault()}
+          onEscapeKeyDown={(e) => save.isPending && e.preventDefault()}
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"
+        >
           <DialogHeader>
             <DialogTitle>{editing?.["id"] ? "Editar registro" : "Nuevo registro"}</DialogTitle>
           </DialogHeader>
@@ -275,7 +296,7 @@ export function CrudManager({
                 disabled={save.isPending}
                 className="min-h-12 w-full rounded-xl text-base font-semibold"
               >
-                {save.isPending ? "Guardando…" : "Guardar"}
+                {save.isPending ? "Guardando y Sincronizando..." : "Guardar"}
               </Button>
               {translations ? (
                 editing["id"] ? (
