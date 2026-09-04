@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "./sync";
 import type { LanguageCode } from "./i18n";
 import { filterBySchool, filterBySchoolStrict } from "./school-scope";
@@ -59,23 +59,25 @@ export type CategoryRow = {
 };
 
 export async function fetchCategories(schoolId?: string): Promise<CategoryRow[]> {
-  try {
-    const { data, error } = await supabase
-      .from("categories")
-      .select(
-        "id, slug, name, description, icon, display_order, is_featured, is_visible, card_banner_url, card_bg, category_translations(language_code, name, description)",
-      )
-      .order("display_order", { ascending: true });
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .select(
+          "id, slug, name, description, icon, display_order, is_featured, is_visible, card_banner_url, card_bg, category_translations(language_code, name, description)",
+        )
+        .order("display_order", { ascending: true });
 
-    if (!error && data && data.length > 0) {
-      writeCache("categories", data);
-      return filterBySchool(data as unknown as CategoryRow[], schoolId);
+      if (!error && data && data.length > 0) {
+        writeCache("categories", data);
+        return filterBySchool(data as unknown as CategoryRow[], schoolId);
+      }
+    } catch (err) {
+      void err;
     }
-  } catch (err) {
-    void err;
   }
 
-  // Offline / Cache fallback: merge with category_translations if needed
+  // Offline / Unified Storage fallback: merge with category_translations if needed
   const cached = readCache<Record<string, unknown>>("categories") ?? [];
   if (cached.length > 0) {
     const trs = readCache<Record<string, unknown>>("category_translations") ?? [];
@@ -128,22 +130,24 @@ export async function fetchPublishedArticles(
   categoryId?: string,
   schoolId?: string,
 ): Promise<ArticleRow[]> {
-  try {
-    let query = supabase
-      .from("articles")
-      .select(ARTICLE_SELECT)
-      .eq("status", "published")
-      .order("published_at", { ascending: false });
-    if (categoryId) query = query.eq("category_id", categoryId);
-    const { data, error } = await query;
+  if (isSupabaseConfigured()) {
+    try {
+      let query = supabase
+        .from("articles")
+        .select(ARTICLE_SELECT)
+        .eq("status", "published")
+        .order("published_at", { ascending: false });
+      if (categoryId) query = query.eq("category_id", categoryId);
+      const { data, error } = await query;
 
-    if (!error && data && data.length > 0) {
-      const rows = (data ?? []) as unknown as ArticleRow[];
-      writeCache("articles", rows);
-      return filterBySchoolStrict(rows, schoolId);
+      if (!error && data && data.length > 0) {
+        const rows = (data ?? []) as unknown as ArticleRow[];
+        writeCache("articles", rows);
+        return filterBySchoolStrict(rows, schoolId);
+      }
+    } catch (err) {
+      void err;
     }
-  } catch (err) {
-    void err;
   }
 
   // Offline / Cache fallback: merge with article_translations and categories
@@ -187,15 +191,17 @@ export async function fetchPublishedArticles(
 }
 
 export async function fetchArticleBySlug(slug: string): Promise<ArticleRow | null> {
-  try {
-    const { data, error } = await supabase
-      .from("articles")
-      .select(ARTICLE_SELECT)
-      .eq("slug", slug)
-      .maybeSingle();
-    if (!error && data) return (data as unknown as ArticleRow) ?? null;
-  } catch (err) {
-    void err;
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from("articles")
+        .select(ARTICLE_SELECT)
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!error && data) return (data as unknown as ArticleRow) ?? null;
+    } catch (err) {
+      void err;
+    }
   }
 
   const cached = readCache<Record<string, unknown>>("articles") ?? [];
@@ -427,21 +433,23 @@ export type EventRow = {
 };
 
 export async function fetchEvents(schoolId?: string): Promise<EventRow[]> {
-  try {
-    const { data, error } = await supabase
-      .from("events")
-      .select(
-        "id, slug, title, description, event_type, start_date, end_date, start_time, end_time, all_day, location, official_url, image_url, is_featured, is_cancelled, status, school_id, category_id, contact_id, updated_at, event_translations(language_code, title, description)",
-      )
-      .eq("status", "published")
-      .order("start_date", { ascending: true });
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from("events")
+        .select(
+          "id, slug, title, description, event_type, start_date, end_date, start_time, end_time, all_day, location, official_url, image_url, is_featured, is_cancelled, status, school_id, category_id, contact_id, updated_at, event_translations(language_code, title, description)",
+        )
+        .eq("status", "published")
+        .order("start_date", { ascending: true });
 
-    if (!error && data) {
-      writeCache("events", data);
-      return filterBySchool(data as unknown as EventRow[], schoolId);
+      if (!error && data) {
+        writeCache("events", data);
+        return filterBySchool(data as unknown as EventRow[], schoolId);
+      }
+    } catch (err) {
+      void err;
     }
-  } catch (err) {
-    void err;
   }
 
   const cached = readCache<Record<string, unknown>>("events") ?? [];
@@ -483,20 +491,22 @@ export async function fetchActiveAnnouncements(schoolId?: string): Promise<Annou
 
   const scoped = (rows: AnnouncementRow[]) => filterBySchool(rows.filter(isActive), schoolId);
 
-  try {
-    const { data, error } = await supabase
-      .from("announcements")
-      .select(
-        "id, level, status, starts_at, expires_at, link_url, is_pinned, show_on_home, school_id, announcement_translations(language_code, title, message)",
-      )
-      .order("is_pinned", { ascending: false })
-      .order("starts_at", { ascending: false });
-    if (!error) {
-      writeCache("announcements", data ?? []);
-      return scoped((data ?? []) as unknown as AnnouncementRow[]);
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from("announcements")
+        .select(
+          "id, level, status, starts_at, expires_at, link_url, is_pinned, show_on_home, school_id, announcement_translations(language_code, title, message)",
+        )
+        .order("is_pinned", { ascending: false })
+        .order("starts_at", { ascending: false });
+      if (!error) {
+        writeCache("announcements", data ?? []);
+        return scoped((data ?? []) as unknown as AnnouncementRow[]);
+      }
+    } catch (err) {
+      void err;
     }
-  } catch (err) {
-    void err;
   }
 
   // Offline only: last successful read from this device.
@@ -513,19 +523,21 @@ export async function fetchActiveAnnouncements(schoolId?: string): Promise<Annou
 }
 
 export async function fetchAllAnnouncements(schoolId?: string): Promise<AnnouncementRow[]> {
-  try {
-    const { data, error } = await supabase
-      .from("announcements")
-      .select(
-        "id, level, status, starts_at, expires_at, link_url, is_pinned, show_on_home, school_id, announcement_translations(language_code, title, message)",
-      )
-      .order("is_pinned", { ascending: false })
-      .order("starts_at", { ascending: false });
-    if (!error) {
-      return filterBySchool((data ?? []) as unknown as AnnouncementRow[], schoolId);
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from("announcements")
+        .select(
+          "id, level, status, starts_at, expires_at, link_url, is_pinned, show_on_home, school_id, announcement_translations(language_code, title, message)",
+        )
+        .order("is_pinned", { ascending: false })
+        .order("starts_at", { ascending: false });
+      if (!error) {
+        return filterBySchool((data ?? []) as unknown as AnnouncementRow[], schoolId);
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
   }
   const cached = readCache<Record<string, unknown>>("announcements") ?? [];
   const trs = readCache<Record<string, unknown>>("announcement_translations") ?? [];
@@ -544,8 +556,9 @@ export function localizedAnnouncement(a: AnnouncementRow, lang: LanguageCode, sc
     title: string;
     message: string;
   } | null;
-  const title = tr?.title ?? "";
-  const message = tr?.message ?? "";
+  const rawObj = a as Record<string, unknown>;
+  const title = tr?.title || (typeof rawObj.title === "string" ? rawObj.title : "");
+  const message = tr?.message || (typeof rawObj.message === "string" ? rawObj.message : "");
   return {
     title: adaptSchoolText(title, schoolId),
     message: adaptSchoolText(message, schoolId),
@@ -560,20 +573,22 @@ export type FaqRow = {
 };
 
 export async function fetchFaqs(schoolId?: string): Promise<FaqRow[]> {
-  try {
-    const { data, error } = await supabase
-      .from("faqs")
-      .select(
-        "id, display_order, category_id, school_id, faq_translations(language_code, question, answer)",
-      )
-      .eq("status", "published")
-      .order("display_order", { ascending: true });
-    if (!error) {
-      writeCache("faqs", data ?? []);
-      return filterBySchool((data ?? []) as unknown as FaqRow[], schoolId);
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from("faqs")
+        .select(
+          "id, display_order, category_id, school_id, faq_translations(language_code, question, answer)",
+        )
+        .eq("status", "published")
+        .order("display_order", { ascending: true });
+      if (!error) {
+        writeCache("faqs", data ?? []);
+        return filterBySchool((data ?? []) as unknown as FaqRow[], schoolId);
+      }
+    } catch (err) {
+      void err;
     }
-  } catch (err) {
-    void err;
   }
 
   // Offline only: last successful read from this device.

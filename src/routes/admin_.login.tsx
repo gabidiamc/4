@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { lovable } from "@/integrations/lovable/index";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { signInWithGoogle } from "@/lib/firebase";
 
 function safeNext(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -63,6 +64,21 @@ function AdminLogin() {
 
   async function onOAuthSignIn(provider: "apple" | "google" | "microsoft") {
     setError(null);
+    if (provider === "google") {
+      try {
+        setLoading(true);
+        await signInWithGoogle();
+        goAfterLogin();
+        return;
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "No se pudo iniciar sesión con Google.";
+        setError(message);
+        setLoading(false);
+        return;
+      }
+    }
+
     if (!isConfigured) {
       setError(
         "Supabase no está conectado todavía. Por favor configure las variables de entorno SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY en Configuración.",

@@ -278,13 +278,13 @@ function AdminDashboard() {
         badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20",
       },
       {
-        id: "calendario",
-        title: "Calendario y Eventos Escolares",
+        id: "eventos",
+        title: "Eventos y Calendario Escolar",
         description:
-          "Gestiona días festivos, conferencias, salidas tempranas y eventos deportivos.",
+          "Publica y gestiona eventos escolares, conferencias de padres, días sin clases y fechas clave.",
         publicRoute: "/calendario",
-        publicRouteLabel: "/calendario",
-        adminRoute: "/admin/calendario",
+        publicRouteLabel: "/calendario y /eventos",
+        adminRoute: "/admin/eventos",
         icon: CalendarDays,
         count: metrics?.totalEvents ?? 0,
         countLabel: "eventos",
@@ -562,6 +562,34 @@ function AdminDashboard() {
       {/* TAB 1: OVERVIEW & ATTENTION CARDS */}
       {activeTab === "overview" && (
         <div className="space-y-8">
+          {/* AI Content Creator Hero Card */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-3xl border border-primary/30 bg-gradient-to-r from-primary/15 via-primary/5 to-amber-500/10 p-5 shadow-xs">
+            <div className="flex items-center gap-4">
+              <div className="grid size-12 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-soft shrink-0">
+                <Sparkles className="size-6" />
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 px-2.5 py-0.5 text-[11px] font-extrabold text-primary mb-1">
+                  <span>Nuevo en el Panel</span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black text-foreground">
+                  Creador de Contenido Inteligente con IA
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  Genera artículos, deportes, actividades y eventos con datos verídicos de DMPS,
+                  preguntas guiadas, estructura con emojis, banners y aprobación antes de publicar.
+                </p>
+              </div>
+            </div>
+            <Link to="/admin/creador-ia">
+              <Button className="min-h-11 rounded-xl px-5 font-bold gap-2 text-xs sm:text-sm shadow-soft whitespace-nowrap">
+                <Sparkles className="size-4" />
+                Abrir Creador IA
+                <ArrowRight className="size-4" />
+              </Button>
+            </Link>
+          </div>
+
           {/* Public Content Reset Maintenance Notice */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
             <div className="flex items-center gap-3">
@@ -616,11 +644,11 @@ function AdminDashboard() {
               </Link>
 
               <Link
-                to="/admin/calendario"
+                to="/admin/eventos"
                 className="flex items-center justify-center gap-2 p-3 rounded-xl border border-border bg-background hover:bg-primary hover:text-white font-bold text-xs transition-all shadow-2xs group"
               >
-                <Calendar className="size-4 text-primary group-hover:text-white" />
-                <span>Calendario</span>
+                <CalendarDays className="size-4 text-primary group-hover:text-white" />
+                <span>Nuevo Evento</span>
               </Link>
 
               <Link

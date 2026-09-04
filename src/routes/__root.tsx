@@ -16,6 +16,7 @@ import { ThemeProvider, THEME_INIT_SCRIPT } from "@/lib/theme";
 import { Toaster } from "@/components/ui/sonner";
 import { useRealtimeContentSync } from "@/lib/sync";
 import { SchoolProvider } from "@/lib/school";
+import { FirebaseProvider } from "@/lib/firebase-context";
 import { SchoolSelectorModal } from "@/components/school-selector-modal";
 import { OnboardingTutorial } from "@/components/onboarding-tutorial";
 import { FloatingAnnouncement } from "@/components/floating-announcement";
@@ -233,16 +234,18 @@ function RootComponent() {
       <ThemeProvider>
         <I18nProvider>
           <SchoolProvider>
-            <RealtimeSync />
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-            <OnboardingTutorial />
-            <SchoolSelectorModal />
-            <FloatingAnnouncement />
-            <FamilyHelpWidget />
-            <CanvaSvgMaskDefs />
+            <FirebaseProvider>
+              <RealtimeSync />
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+              <OnboardingTutorial />
+              <SchoolSelectorModal />
+              <FloatingAnnouncement />
+              <FamilyHelpWidget />
+              <CanvaSvgMaskDefs />
 
-            <Toaster />
+              <Toaster />
+            </FirebaseProvider>
           </SchoolProvider>
         </I18nProvider>
       </ThemeProvider>

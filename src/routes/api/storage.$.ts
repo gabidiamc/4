@@ -1,29 +1,47 @@
 import { createFileRoute } from "@tanstack/react-router";
 import fs from "node:fs";
 import path from "node:path";
+import { getInitialDatabase } from "@/lib/server-seeds";
 
 const DATA_DIR = path.resolve(process.cwd(), "data");
 const DB_FILE = path.join(DATA_DIR, "persistent_db.json");
 
-function ensureDbFile(): Record<string, any[]> {
+function ensureDbFile(): Record<string, unknown[]> {
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     if (!fs.existsSync(DB_FILE)) {
-      fs.writeFileSync(DB_FILE, JSON.stringify({}, null, 2), "utf-8");
-      return {};
+      const initial = getInitialDatabase();
+      fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2), "utf-8");
+      return initial;
     }
     const raw = fs.readFileSync(DB_FILE, "utf-8");
-    if (!raw.trim()) return {};
-    return JSON.parse(raw);
+    if (!raw.trim()) {
+      const initial = getInitialDatabase();
+      fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2), "utf-8");
+      return initial;
+    }
+    const parsed = JSON.parse(raw);
+    // If essential tables are missing, merge initial dataset
+    if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
+      const initial = getInitialDatabase();
+      const merged = { ...initial, ...parsed };
+      writeDbFile(merged);
+      return merged;
+    }
+    return parsed;
   } catch (err) {
     console.error("[Storage API] Error reading persistent_db.json:", err);
-    return {};
+    try {
+      return getInitialDatabase();
+    } catch {
+      return {};
+    }
   }
 }
 
-function writeDbFile(data: Record<string, any[]>): boolean {
+function writeDbFile(data: Record<string, unknown[]>): boolean {
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -73,9 +91,9 @@ export const Route = createFileRoute("/api/storage/$")({
 
         try {
           const body = (await request.json()) as {
-            rows?: any[];
-            row?: any;
-            tables?: Record<string, any[]>;
+            rows?: unknown[];
+            row?: Record<string, unknown>;
+            tables?: Record<string, unknown[]>;
             action?: "delete" | "clear" | "upsert";
             id?: string;
           };
@@ -102,14 +120,21 @@ export const Route = createFileRoute("/api/storage/$")({
               delete db[target];
             } else if (body.action === "delete" && body.id) {
               const current = db[target] ?? [];
-              db[target] = current.filter((r: any) => String(r.id) !== String(body.id));
+              db[target] = current.filter((r) => {
+                const item = r as Record<string, unknown>;
+                return String(item?.["id"]) !== String(body.id);
+              });
             } else if (Array.isArray(body.rows)) {
               db[target] = body.rows;
-            } else if (body.row && body.row.id) {
+            } else if (body.row && body.row["id"]) {
               const current = db[target] ?? [];
-              const idx = current.findIndex((r: any) => String(r.id) === String(body.row.id));
+              const targetId = String(body.row["id"]);
+              const idx = current.findIndex((r) => {
+                const item = r as Record<string, unknown>;
+                return String(item?.["id"]) === targetId;
+              });
               if (idx >= 0) {
-                current[idx] = { ...current[idx], ...body.row };
+                current[idx] = { ...(current[idx] as Record<string, unknown>), ...body.row };
               } else {
                 current.unshift(body.row);
               }
@@ -126,14 +151,12 @@ export const Route = createFileRoute("/api/storage/$")({
             status: 400,
             headers: { "content-type": "application/json" },
           });
-        } catch (err: any) {
-          return new Response(
-            JSON.stringify({ success: false, error: err?.message || String(err) }),
-            {
-              status: 500,
-              headers: { "content-type": "application/json" },
-            },
-          );
+        } catch (err: unknown) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ success: false, error: errorMsg }), {
+            status: 500,
+            headers: { "content-type": "application/json" },
+          });
         }
       },
     },

@@ -1,10 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Clock, Info, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { PublicShell } from "@/components/public-shell";
 import { SearchInput } from "@/components/search-input";
+import { SearchAdvice } from "@/components/search-advice";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchAllAnnouncements,
@@ -30,9 +31,6 @@ import {
 import { useI18n } from "@/lib/i18n";
 import { useSchool } from "@/lib/school";
 
-type StatusFilterKey =
-  "all" | "active" | "upcoming" | "happening_now" | "completed" | "out_of_season";
-
 export const Route = createFileRoute("/search")({
   validateSearch: (search: Record<string, unknown>) => ({ q: (search["q"] as string) ?? "" }),
   head: () => ({
@@ -57,12 +55,12 @@ export const Route = createFileRoute("/search")({
 
 function SearchPage() {
   const { q } = Route.useSearch();
+  const navigate = useNavigate();
   const { t, lang } = useI18n();
   const { selectedSchool } = useSchool();
   const schoolId = selectedSchool.id;
 
   const [groupFilter, setGroupFilter] = useState<SearchGroupKey | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>("all");
 
   const announcements = useQuery({
     queryKey: ["announcements-all", schoolId],
@@ -112,7 +110,7 @@ function SearchPage() {
         announcements: announcements.data ?? [],
         articles: articles.data ?? [],
         categories: categories.data ?? [],
-        events: events.data ?? [],
+        events: [], // Dates and calendar removed from search per user request
         programs: programs.data ?? [],
         activities: activities.data ?? [],
         faqs: faqs.data ?? [],
@@ -126,7 +124,6 @@ function SearchPage() {
       announcements.data,
       articles.data,
       categories.data,
-      events.data,
       programs.data,
       activities.data,
       faqs.data,
@@ -148,38 +145,13 @@ function SearchPage() {
     );
   }, [q, allResults]);
 
-  // Filter by group and status
+  // Filter by category/group
   const visible = useMemo(() => {
     return allResults.filter((r) => {
       if (groupFilter !== "all" && r.group !== groupFilter) return false;
-
-      if (statusFilter === "active") {
-        return (
-          r.lifecycleStatus === "active" ||
-          r.lifecycleStatus === "happening_now" ||
-          r.lifecycleStatus === "upcoming"
-        );
-      }
-      if (statusFilter === "happening_now") {
-        return r.lifecycleStatus === "happening_now";
-      }
-      if (statusFilter === "upcoming") {
-        return r.lifecycleStatus === "upcoming";
-      }
-      if (statusFilter === "completed") {
-        return (
-          r.lifecycleStatus === "completed" ||
-          r.lifecycleStatus === "registration_closed" ||
-          r.isExpired
-        );
-      }
-      if (statusFilter === "out_of_season") {
-        return r.lifecycleStatus === "out_of_season";
-      }
-
       return true;
     });
-  }, [allResults, groupFilter, statusFilter]);
+  }, [allResults, groupFilter]);
 
   const groupCounts = useMemo(() => {
     const map = new Map<SearchGroupKey, number>();
@@ -194,7 +166,7 @@ function SearchPage() {
       if (list) list.push(item);
       else map.set(item.group, [item]);
     }
-    return SEARCH_GROUP_ORDER.filter((g) => map.has(g)).map(
+    return SEARCH_GROUP_ORDER.filter((g) => g !== "events" && map.has(g)).map(
       (g) => [g, map.get(g) ?? []] as [SearchGroupKey, GlobalSearchResult[]],
     );
   }, [visible]);
@@ -206,7 +178,6 @@ function SearchPage() {
 
   useEffect(() => {
     setGroupFilter("all");
-    setStatusFilter("all");
   }, [q]);
 
   return (
@@ -218,6 +189,16 @@ function SearchPage() {
         </p>
         <div className="mt-5 sm:mt-6">
           <SearchInput size="sm" defaultValue={q} />
+          {/* Dynamic Tips ("Consejos") section in the right corner below the search bar */}
+          <div className="mt-2 flex justify-end">
+            <SearchAdvice
+              query={q}
+              lang={lang}
+              onSelectQuery={(newQuery) => {
+                void navigate({ to: "/search", search: { q: newQuery } });
+              }}
+            />
+          </div>
         </div>
 
         {loading ? (
@@ -233,45 +214,6 @@ function SearchPage() {
                 {visible.length} {t("search.count")}
                 {q ? ` · ${t("search.for")} “${q}”` : ""}
               </p>
-
-              {/* Status segmented filters */}
-              {allResults.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-card p-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter("all")}
-                    className={`min-h-8 rounded-lg px-2.5 py-1 font-semibold transition-colors ${
-                      statusFilter === "all"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {lang === "es" ? "Todos" : "All"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter("active")}
-                    className={`min-h-8 rounded-lg px-2.5 py-1 font-semibold transition-colors ${
-                      statusFilter === "active"
-                        ? "bg-emerald-600 text-white"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {lang === "es" ? "Vigente" : "Active & Upcoming"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter("completed")}
-                    className={`min-h-8 rounded-lg px-2.5 py-1 font-semibold transition-colors ${
-                      statusFilter === "completed"
-                        ? "bg-neutral-600 text-white"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {lang === "es" ? "Finalizado" : "Completed / Past"}
-                  </button>
-                </div>
-              ) : null}
             </div>
 
             {/* Fallback alert banner if no active information was found but older records exist */}

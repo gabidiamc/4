@@ -828,7 +828,7 @@ function ArticleStepEditorModal({
       const savedArt = await upsertRow("articles", articleData);
       const newArticleId = String(savedArt.id);
 
-      // Save translation
+      // Save translation to unified persistent storage and server disk
       const trBody = {
         id: `tr_${newArticleId}_${lang}`,
         article_id: newArticleId,
@@ -839,32 +839,9 @@ function ArticleStepEditorModal({
         updated_at: new Date().toISOString(),
       };
 
-      try {
-        const { error: trError } = await (supabase as any)
-          .from("article_translations")
-          .upsert(trBody, { onConflict: "article_id,language_code" });
-        if (trError) console.warn("[article_translations upsert warning]", trError.message);
-      } catch (trErr) {
-        console.warn("[article_translations exception]", trErr);
-      }
-
-      // Update local storage cache for translations safely
-      if (typeof window !== "undefined") {
-        const cachedTrs = readCache<any>("article_translations") ?? [];
-        const idx = cachedTrs.findIndex(
-          (r) => r.article_id === newArticleId && r.language_code === lang,
-        );
-        let allTrs: any[];
-        if (idx >= 0) {
-          allTrs = [...cachedTrs];
-          allTrs[idx] = { ...allTrs[idx], ...trBody };
-        } else {
-          allTrs = [trBody, ...cachedTrs];
-        }
-        writeCache("article_translations", allTrs);
-        notifyContentUpdated("articles");
-        notifyContentUpdated("article_translations");
-      }
+      await upsertRow("article_translations", trBody);
+      notifyContentUpdated("articles");
+      notifyContentUpdated("article_translations");
 
       // Log audit
       try {

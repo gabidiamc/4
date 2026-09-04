@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import { filterBySchool, schoolIdForStorage } from "./school-scope";
-import { readCache, writeCache, notifyContentUpdated } from "./sync";
+import { readCache, writeCache, saveToUnifiedStorage, notifyContentUpdated } from "./sync";
 import { SEED_CATEGORIES, SEED_ARTICLES } from "./school-content-data";
 import { INITIAL_SCHOOLS } from "./school";
 import { INITIAL_LINCOLN_RESOURCES } from "./resources";
@@ -57,38 +57,40 @@ export async function listRows(
 ): Promise<Row[]> {
   let rows: Row[] = [];
 
-  try {
-    const { data, error } = await table(name).select("*").order(orderBy, { ascending });
-    if (!error && Array.isArray(data) && data.length > 0) {
-      rows = data as Row[];
-      writeCache(name, rows);
-    } else {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await table(name).select("*").order(orderBy, { ascending });
+      if (!error && Array.isArray(data) && data.length > 0) {
+        rows = data as Row[];
+        void saveToUnifiedStorage(name, rows);
+      } else {
+        rows = readCache<Row>(name) ?? [];
+      }
+    } catch {
       rows = readCache<Row>(name) ?? [];
     }
-  } catch {
+  } else {
     rows = readCache<Row>(name) ?? [];
   }
 
-  // If table is unpopulated in DB & cache, seed with defaults
+  // Fallback to starter defaults purely in-memory (DO NOT overwrite persistent storage)
   if (rows.length === 0) {
     if (name === "categories") {
       rows = SEED_CATEGORIES.map((c) => ({
         ...c,
         category_translations: undefined,
       })) as unknown as Row[];
-      writeCache("categories", rows);
     } else if (name === "articles") {
       rows = SEED_ARTICLES.map((a) => ({
         ...a,
         article_translations: undefined,
       })) as unknown as Row[];
-      writeCache("articles", rows);
     } else if (name === "schools") {
       rows = INITIAL_SCHOOLS as unknown as Row[];
-      writeCache("schools", rows);
     } else if (name === "resources") {
       rows = INITIAL_LINCOLN_RESOURCES as unknown as Row[];
-      writeCache("resources", rows);
+    } else if (name === "contacts") {
+      rows = SEED_CONTACTS as unknown as Row[];
     }
   }
 
@@ -105,14 +107,6 @@ export async function listRows(
         summary: r.summary || (esTr ? esTr.summary : undefined),
       };
     });
-  }
-
-  // Default contacts if empty
-  if (name === "contacts") {
-    if (rows.length === 0) {
-      rows = SEED_CONTACTS as unknown as Row[];
-      writeCache("contacts", rows);
-    }
   }
 
   // If table does not have school_id (e.g. schools, audit_logs, site_settings), return all
@@ -199,7 +193,7 @@ export async function upsertRow(name: string, values: Row): Promise<Row> {
     created_at: values["created_at"] || new Date().toISOString(),
   };
 
-  // 1. Immediately update the client cache so changes reflect instantaneously across all components
+  // 1. Immediately update unified storage across all layers and await server persistence
   try {
     const currentRows = readCache<Row>(name) ?? [];
     const existingIndex = currentRows.findIndex((r) => String(r.id) === String(id));
@@ -210,7 +204,7 @@ export async function upsertRow(name: string, values: Row): Promise<Row> {
     } else {
       updatedRows = [fullSavedObject, ...currentRows];
     }
-    writeCache(name, updatedRows);
+    await saveToUnifiedStorage(name, updatedRows);
   } catch (cacheErr) {
     console.warn(`[Cache update warning for ${name}]`, cacheErr);
   }
@@ -278,10 +272,11 @@ export async function upsertRow(name: string, values: Row): Promise<Row> {
           updated_at: new Date().toISOString(),
         };
         updatedTrs = [esRow, ...updatedTrs];
-        // Background upsert
-        void table(seedInfo.trTable)
-          .upsert(esRow, { onConflict: "id" })
-          .catch(() => {});
+        if (isSupabaseConfigured()) {
+          void table(seedInfo.trTable)
+            .upsert(esRow, { onConflict: "id" })
+            .catch(() => {});
+        }
       }
       if (!hasEn) {
         const enRow = {
@@ -292,39 +287,41 @@ export async function upsertRow(name: string, values: Row): Promise<Row> {
           updated_at: new Date().toISOString(),
         };
         updatedTrs = [enRow, ...updatedTrs];
-        // Background upsert
-        void table(seedInfo.trTable)
-          .upsert(enRow, { onConflict: "id" })
-          .catch(() => {});
+        if (isSupabaseConfigured()) {
+          void table(seedInfo.trTable)
+            .upsert(enRow, { onConflict: "id" })
+            .catch(() => {});
+        }
       }
-      writeCache(seedInfo.trTable, updatedTrs);
+      await saveToUnifiedStorage(seedInfo.trTable, updatedTrs);
     } catch (trErr) {
       console.warn(`[Auto translation seed error for ${name}]`, trErr);
     }
   }
 
-  // 3. Persist to Supabase
+  // 3. Persist to Supabase if configured
   let resultRow: Row = fullSavedObject;
-  try {
-    const { data, error } = await table(name)
-      .upsert({ ...payload, id, updated_at: new Date().toISOString() }, { onConflict: "id" })
-      .select()
-      .maybeSingle();
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await table(name)
+        .upsert({ ...payload, id, updated_at: new Date().toISOString() }, { onConflict: "id" })
+        .select()
+        .maybeSingle();
 
-    if (error) {
-      console.warn(`[Supabase upsert warning for ${name}]: ${error.message}`);
-    } else if (data) {
-      resultRow = data as Row;
-      // Sync back canonical DB row to cache
-      const currentRows = readCache<Row>(name) ?? [];
-      const idx = currentRows.findIndex((r) => String(r.id) === String(id));
-      if (idx >= 0) {
-        currentRows[idx] = resultRow;
-        writeCache(name, currentRows);
+      if (error) {
+        console.warn(`[Supabase upsert warning for ${name}]: ${error.message}`);
+      } else if (data) {
+        resultRow = data as Row;
+        const currentRows = readCache<Row>(name) ?? [];
+        const idx = currentRows.findIndex((r) => String(r.id) === String(id));
+        if (idx >= 0) {
+          currentRows[idx] = resultRow;
+          await saveToUnifiedStorage(name, currentRows);
+        }
       }
+    } catch (err) {
+      console.warn(`[Supabase upsert exception for ${name}]`, err);
     }
-  } catch (err) {
-    console.warn(`[Supabase upsert exception for ${name}]`, err);
   }
 
   if (typeof window !== "undefined") {
@@ -339,23 +336,25 @@ export async function upsertRow(name: string, values: Row): Promise<Row> {
 }
 
 export async function deleteRow(name: string, id: string) {
-  // 1. Remove from local cache immediately
+  // 1. Remove from local & server cache immediately
   try {
     const currentRows = readCache<Row>(name) ?? [];
     const filtered = currentRows.filter((r) => String(r.id) !== String(id));
-    writeCache(name, filtered);
+    await saveToUnifiedStorage(name, filtered);
   } catch (cacheErr) {
     console.warn(`[Cache delete warning for ${name}]`, cacheErr);
   }
 
-  // 2. Delete from Supabase
-  try {
-    const { error } = await table(name).delete().eq("id", id);
-    if (error) {
-      console.warn(`[Supabase delete warning for ${name}]: ${error.message}`);
+  // 2. Delete from Supabase if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await table(name).delete().eq("id", id);
+      if (error) {
+        console.warn(`[Supabase delete warning for ${name}]: ${error.message}`);
+      }
+    } catch (err) {
+      console.warn(`[Supabase delete exception for ${name}]`, err);
     }
-  } catch (err) {
-    console.warn(`[Supabase delete exception for ${name}]`, err);
   }
 
   if (typeof window !== "undefined") {

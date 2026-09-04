@@ -1,0 +1,155 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'anonymous');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'yeferm264@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Schema Validation Helpers
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['id', 'email', 'role', 'createdAt', 'updatedAt']) &&
+        data.keys().size() <= 7 &&
+        data.id is string && isValidId(data.id) && data.id == request.auth.uid &&
+        data.email is string && data.email.size() <= 256 &&
+        data.role in ['parent', 'student', 'staff', 'admin'] &&
+        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120)) &&
+        (!('preferredLanguage' in data) || (data.preferredLanguage is string && data.preferredLanguage.size() <= 10));
+    }
+
+    function isValidFamilyInquiry(data) {
+      return data.keys().hasAll(['id', 'userId', 'userName', 'contactEmail', 'message', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().size() <= 11 &&
+        data.id is string && isValidId(data.id) &&
+        data.userId is string && data.userId == request.auth.uid &&
+        data.userName is string && data.userName.size() <= 100 &&
+        data.contactEmail is string && data.contactEmail.size() <= 256 &&
+        data.message is string && data.message.size() <= 2000 &&
+        data.status in ['pending', 'in_progress', 'resolved'] &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+        (!('school' in data) || (data.school is string && data.school.size() <= 100)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 50));
+    }
+
+    function isValidAnnouncement(data) {
+      return data.keys().hasAll(['id', 'title', 'content', 'publishedBy', 'createdAt', 'updatedAt']) &&
+        data.keys().size() <= 8 &&
+        data.id is string && isValidId(data.id) &&
+        data.title is string && data.title.size() <= 200 &&
+        data.content is string && data.content.size() <= 10000 &&
+        data.publishedBy is string &&
+        (!('summary' in data) || (data.summary is string && data.summary.size() <= 500)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 50)) &&
+        (!('isImportant' in data) || (data.isImportant is bool));
+    }
+
+    function isValidSavedItem(data) {
+      return data.keys().hasAll(['id', 'userId', 'itemType', 'itemId', 'title', 'createdAt']) &&
+        data.keys().size() <= 7 &&
+        data.id is string && isValidId(data.id) &&
+        data.userId is string && data.userId == request.auth.uid &&
+        data.itemType is string && data.itemType.size() <= 50 &&
+        data.itemId is string && data.itemId.size() <= 128 &&
+        data.title is string && data.title.size() <= 200 &&
+        (!('url' in data) || (data.url is string && data.url.size() <= 500));
+    }
+
+    // Health / connection test doc
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isVerifiedUser() &&
+        request.auth.uid == userId &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming()) &&
+        incoming().role != 'admin';
+      allow update: if isVerifiedUser() && (
+        isAdmin() || (
+          request.auth.uid == userId &&
+          isValidUserProfile(incoming()) &&
+          incoming().role == existing().role &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'preferredLanguage', 'updatedAt'])
+        )
+      );
+      allow delete: if isAdmin();
+
+      // User subcollection for saved items
+      match /savedItems/{savedItemId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isVerifiedUser() &&
+          request.auth.uid == userId &&
+          isValidId(savedItemId) &&
+          isValidSavedItem(incoming());
+        allow delete: if isVerifiedUser() && request.auth.uid == userId;
+      }
+    }
+
+    // Admins collection
+    match /admins/{adminId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow write: if isAdmin() && isValidId(adminId);
+    }
+
+    // Family Inquiries collection
+    match /inquiries/{inquiryId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerifiedUser() &&
+        isValidId(inquiryId) &&
+        isValidFamilyInquiry(incoming());
+      allow update: if isVerifiedUser() && (
+        isAdmin() || (
+          resource.data.userId == request.auth.uid &&
+          existing().status != 'resolved' &&
+          isValidFamilyInquiry(incoming()) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['message', 'updatedAt'])
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Announcements collection
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidId(announcementId) && isValidAnnouncement(incoming());
+      allow update: if isAdmin() && isValidAnnouncement(incoming());
+      allow delete: if isAdmin();
+    }
+  }
+}

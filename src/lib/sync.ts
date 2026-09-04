@@ -42,10 +42,11 @@ import {
   safeSetItem,
   readFromUnifiedStorage,
   writeToUnifiedStorage,
+  saveToUnifiedStorage,
   initUnifiedStorageEngine,
 } from "./storage-engine";
 
-export { cacheKey, safeSetItem };
+export { cacheKey, safeSetItem, saveToUnifiedStorage };
 
 export function readCache<T = any>(table: string): T[] | null {
   return readFromUnifiedStorage<T>(table);

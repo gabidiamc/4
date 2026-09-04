@@ -12,8 +12,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchActiveAnnouncements,
   fetchCategories,
+  fetchEvents,
   fetchPublishedArticles,
   localizedCategory,
+  localizedEvent,
 } from "@/lib/content";
 import { computeContentStatus, getStatusBadgeInfo } from "@/lib/content-lifecycle";
 import { useI18n } from "@/lib/i18n";
@@ -107,6 +109,10 @@ function Index() {
   const articles = useQuery({
     queryKey: ["articles", selectedSchool.id],
     queryFn: () => fetchPublishedArticles(undefined, selectedSchool.id),
+  });
+  const events = useQuery({
+    queryKey: ["events", selectedSchool.id],
+    queryFn: () => fetchEvents(selectedSchool.id),
   });
 
   const categoriesList = categories.data ?? [];
@@ -300,44 +306,95 @@ function Index() {
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {KEY_DISTRICT_DATES.slice(0, 3).map((item) => {
-            const status = computeContentStatus(item);
-            const badge = getStatusBadgeInfo(status, lang);
-            const title = lang === "es" ? item.title_es : item.title_en;
-            const tag = lang === "es" ? item.tag_es : item.tag_en;
-            const startDate = new Date(item.starts_at);
-            const formattedDate = startDate.toLocaleDateString(lang === "es" ? "es-US" : "en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            });
+          {events.data && events.data.length > 0
+            ? events.data.slice(0, 3).map((item) => {
+                const loc = localizedEvent(item, lang, selectedSchool.id);
+                const title = loc.title || item.title;
+                const formattedDate = item.start_date
+                  ? new Date(item.start_date + "T12:00:00").toLocaleDateString(
+                      lang === "es" ? "es-US" : "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    )
+                  : "";
 
-            return (
-              <div
-                key={item.id}
-                className="surface-card flex flex-col justify-between rounded-2xl border border-border p-4 shadow-soft transition-all hover:border-primary/30"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-                      {tag}
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${badge.className}`}
-                    >
-                      <span className={`size-1.5 rounded-full ${badge.dotClassName}`} />
-                      {badge.label}
-                    </span>
+                return (
+                  <div
+                    key={item.id}
+                    className="surface-card flex flex-col justify-between rounded-2xl border border-border p-4 shadow-soft transition-all hover:border-primary/30"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold text-muted-foreground capitalize">
+                          {item.event_type || (lang === "es" ? "Evento" : "Event")}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                          <span className="size-1.5 rounded-full bg-emerald-500" />
+                          {lang === "es" ? "Confirmado" : "Confirmed"}
+                        </span>
+                      </div>
+                      <h3 className="mt-2 text-base font-bold text-foreground leading-snug">
+                        {title}
+                      </h3>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between gap-1.5 text-xs font-medium text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="size-3.5 text-primary" aria-hidden="true" />
+                        <span>{formattedDate}</span>
+                      </div>
+                      {item.all_day ? (
+                        <span>{lang === "es" ? "Todo el día" : "All day"}</span>
+                      ) : item.start_time ? (
+                        <span>{item.start_time}</span>
+                      ) : null}
+                    </div>
                   </div>
-                  <h3 className="mt-2 text-base font-bold text-foreground">{title}</h3>
-                </div>
-                <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <Clock className="size-3.5" aria-hidden="true" />
-                  <span>{formattedDate}</span>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })
+            : KEY_DISTRICT_DATES.slice(0, 3).map((item) => {
+                const status = computeContentStatus(item);
+                const badge = getStatusBadgeInfo(status, lang);
+                const title = lang === "es" ? item.title_es : item.title_en;
+                const tag = lang === "es" ? item.tag_es : item.tag_en;
+                const startDate = new Date(item.starts_at);
+                const formattedDate = startDate.toLocaleDateString(
+                  lang === "es" ? "es-US" : "en-US",
+                  {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  },
+                );
+
+                return (
+                  <div
+                    key={item.id}
+                    className="surface-card flex flex-col justify-between rounded-2xl border border-border p-4 shadow-soft transition-all hover:border-primary/30"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                          {tag}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${badge.className}`}
+                        >
+                          <span className={`size-1.5 rounded-full ${badge.dotClassName}`} />
+                          {badge.label}
+                        </span>
+                      </div>
+                      <h3 className="mt-2 text-base font-bold text-foreground">{title}</h3>
+                    </div>
+                    <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <Clock className="size-3.5" aria-hidden="true" />
+                      <span>{formattedDate}</span>
+                    </div>
+                  </div>
+                );
+              })}
         </div>
       </section>
 

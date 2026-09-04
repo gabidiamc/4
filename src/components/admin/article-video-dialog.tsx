@@ -176,7 +176,7 @@ export function ArticleVideoDialog({ open, onOpenChange, onInsert }: ArticleVide
               <label className="text-xs font-bold text-foreground block mb-1">Alineación</label>
               <select
                 value={align}
-                onChange={(e) => setAlign(e.target.value as any)}
+                onChange={(e) => setAlign(e.target.value as "left" | "center" | "right")}
                 className="w-full rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold"
               >
                 <option value="center">Centrado</option>

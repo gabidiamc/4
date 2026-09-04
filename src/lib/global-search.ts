@@ -1,4 +1,5 @@
 import type { LanguageCode } from "@/lib/i18n";
+import { normalizeText, tokenizeQuery, tokenInText, singularize } from "@/lib/help/text";
 import {
   localizedArticle,
   localizedAnnouncement,
@@ -99,89 +100,170 @@ export const SEARCH_GROUP_ORDER: SearchGroupKey[] = [
 
 /** Cross-language keyword dictionary and synonyms */
 const SYNONYM_MAP: Record<string, string[]> = {
-  bus: ["autobus", "transporte", "camion", "dart", "rutas", "paradas", "horario"],
-  autobus: ["bus", "transporte", "dart", "rutas", "paradas"],
-  dart: ["bus", "autobus", "transporte", "rutas", "paradas", "rides"],
-  transporte: ["bus", "autobus", "dart", "rutas", "transportation"],
-  comida: ["almuerzo", "desayuno", "nutricion", "cafeteria", "lunch", "breakfast", "meals", "food"],
-  almuerzo: ["comida", "desayuno", "nutricion", "lunch", "meals", "cafeteria"],
-  desayuno: ["comida", "almuerzo", "breakfast", "nutricion"],
-  lunch: ["almuerzo", "comida", "meals", "nutrition", "cafeteria"],
-  horario: ["campanas", "bell", "schedule", "horas", "clases", "entrada", "salida"],
-  campanas: ["horario", "bell", "schedule", "campana", "timbre"],
+  campus: [
+    "infinite",
+    "portal",
+    "parent",
+    "calificaciones",
+    "notas",
+    "grades",
+    "asistencia",
+    "faltas",
+  ],
+  infinite: ["campus", "portal", "calificaciones", "notas", "grades"],
+  portal: ["campus", "infinite", "parent", "padres", "familias"],
+  bus: ["autobus", "transporte", "camion", "dart", "rutas", "paradas", "horario", "pase", "id"],
+  autobus: ["bus", "transporte", "dart", "rutas", "paradas", "camion", "escolar"],
+  camion: ["bus", "autobus", "dart", "transporte", "escolar", "rutas"],
+  dart: [
+    "bus",
+    "autobus",
+    "transporte",
+    "rutas",
+    "paradas",
+    "rides",
+    "id",
+    "credencial",
+    "pase",
+    "tarjeta",
+  ],
+  transporte: ["bus", "autobus", "dart", "rutas", "transportation", "camion"],
+  id: ["credencial", "identificacion", "tarjeta", "carnet", "badge", "estudiante", "dart"],
+  credencial: ["id", "identificacion", "tarjeta", "carnet", "badge", "estudiante"],
+  comida: [
+    "almuerzo",
+    "desayuno",
+    "nutricion",
+    "cafeteria",
+    "lunch",
+    "breakfast",
+    "meals",
+    "food",
+    "nutrislice",
+    "menus",
+  ],
+  almuerzo: [
+    "comida",
+    "desayuno",
+    "nutricion",
+    "lunch",
+    "meals",
+    "cafeteria",
+    "nutrislice",
+    "menu",
+  ],
+  desayuno: ["comida", "almuerzo", "breakfast", "nutricion", "nutrislice"],
+  lunch: ["almuerzo", "comida", "meals", "nutrition", "cafeteria", "nutrislice"],
+  calificaciones: ["notas", "grades", "report card", "boletin", "campus", "infinite campus"],
+  notas: ["calificaciones", "grades", "campus", "boletin"],
+  grades: ["calificaciones", "notas", "report card", "campus"],
+  asistencia: ["faltas", "attendance", "ausencias", "justificar", "excusa", "tardanzas"],
+  horario: ["campanas", "bell", "schedule", "horas", "clases", "entrada", "salida", "periodos"],
+  campanas: ["horario", "bell", "schedule", "campana", "timbre", "entrada", "salida"],
   bell: ["campanas", "horario", "schedule", "campana"],
-  inscripcion: ["matricula", "registro", "enrollment", "registration", "inscribirse", "ingreso"],
-  matricula: ["inscripcion", "registro", "enrollment", "inscribirse"],
-  enrollment: ["inscripcion", "matricula", "registration", "register"],
-  calendario: ["calendar", "fechas", "dias", "festivos", "vacaciones", "no school", "sin clases"],
+  inscripcion: [
+    "matricula",
+    "registro",
+    "enrollment",
+    "registration",
+    "inscribirse",
+    "ingreso",
+    "oler",
+    "kindergarten",
+  ],
+  matricula: ["inscripcion", "registro", "enrollment", "registration", "inscribirse"],
+  registro: ["inscripcion", "matricula", "enrollment", "registration"],
+  enrollment: ["inscripcion", "matricula", "registration", "register", "oler"],
+  calendario: [
+    "calendar",
+    "fechas",
+    "dias",
+    "festivos",
+    "vacaciones",
+    "no school",
+    "sin clases",
+    "receso",
+  ],
   calendar: ["calendario", "dates", "schedule", "holidays"],
-  deportes: ["sports", "futbol", "soccer", "baloncesto", "basketball", "volleyball", "atletismo"],
-  sports: ["deportes", "athletics", "teams", "equipos"],
-  salud: ["enfermera", "enfermeria", "vacunas", "health", "nurse", "immunization", "medico"],
-  health: ["salud", "nurse", "immunization", "enfermeria"],
-  contacto: ["telefono", "oficina", "email", "correo", "contact", "directorio", "phone"],
-  contact: ["contacto", "phone", "email", "office"],
-  voluntarios: ["voluntariado", "voluntario", "volunteer", "bfl", "participar"],
-  volunteer: ["voluntarios", "voluntariado", "bfl"],
-  empleos: ["trabajo", "jobs", "student jobs", "carreras", "bolsa de trabajo"],
+  deportes: [
+    "sports",
+    "futbol",
+    "soccer",
+    "baloncesto",
+    "basketball",
+    "volleyball",
+    "atletismo",
+    "bound",
+    "equipos",
+  ],
+  bound: ["deportes", "sports", "actividades", "atletismo", "equipos", "boletos"],
+  sports: ["deportes", "athletics", "teams", "equipos", "bound"],
+  salud: [
+    "enfermera",
+    "enfermeria",
+    "vacunas",
+    "health",
+    "nurse",
+    "immunization",
+    "medico",
+    "dental",
+    "vision",
+  ],
+  vacunas: ["salud", "enfermera", "nurse", "immunization", "inmunizaciones"],
+  health: ["salud", "nurse", "immunization", "enfermeria", "vacunas"],
+  contacto: [
+    "telefono",
+    "oficina",
+    "email",
+    "correo",
+    "contact",
+    "directorio",
+    "phone",
+    "director",
+  ],
+  contact: ["contacto", "phone", "email", "office", "directory"],
+  voluntarios: [
+    "voluntariado",
+    "voluntario",
+    "volunteer",
+    "bfl",
+    "participar",
+    "silver cord",
+    "horas",
+  ],
+  volunteer: ["voluntarios", "voluntariado", "bfl", "silver cord"],
+  empleos: ["trabajo", "jobs", "student jobs", "carreras", "bolsa de trabajo", "laboral"],
   jobs: ["empleos", "trabajo", "work"],
   faq: ["preguntas", "dudas", "respuestas", "questions", "ayuda"],
   preguntas: ["faq", "dudas", "respuestas", "questions"],
 };
 
 function normalize(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** Check if two words are identical or within 1 typo distance (for words >= 4 chars) */
-function isFuzzyMatch(a: string, b: string): boolean {
-  if (a === b) return true;
-  if (a.includes(b) || b.includes(a)) return true;
-  if (a.length >= 4 && b.length >= 4 && Math.abs(a.length - b.length) <= 1) {
-    let diffs = 0;
-    let i = 0;
-    let j = 0;
-    while (i < a.length && j < b.length) {
-      if (a[i] !== b[j]) {
-        diffs++;
-        if (diffs > 1) return false;
-        if (a.length > b.length) i++;
-        else if (b.length > a.length) j++;
-        else {
-          i++;
-          j++;
-        }
-      } else {
-        i++;
-        j++;
-      }
-    }
-    return true;
-  }
-  return false;
+  return normalizeText(value);
 }
 
 function tokenize(query: string): string[] {
-  return normalize(query)
-    .split(" ")
-    .filter((token) => token.length > 1);
+  return tokenizeQuery(query);
 }
 
 /** Expand search tokens with known cross-language synonyms */
 function expandTokens(tokens: string[]): string[][] {
   return tokens.map((token) => {
     const list = [token];
+    const sing = singularize(token);
+    if (sing !== token && !list.includes(sing)) {
+      list.push(sing);
+    }
     if (SYNONYM_MAP[token]) {
       list.push(...SYNONYM_MAP[token]);
     }
+    if (SYNONYM_MAP[sing]) {
+      for (const s of SYNONYM_MAP[sing]) {
+        if (!list.includes(s)) list.push(s);
+      }
+    }
     for (const [key, syns] of Object.entries(SYNONYM_MAP)) {
-      if (syns.includes(token) && !list.includes(key)) {
+      if ((syns.includes(token) || syns.includes(sing)) && !list.includes(key)) {
         list.push(key);
       }
     }
@@ -197,35 +279,76 @@ function scoreFields(
   body: string[],
   itemSchoolId?: string | null,
   currentSchoolId?: string | null,
+  normalizedFullQuery?: string,
 ): number {
-  const normTitle = normalize(title);
-  const normBody = normalize(body.filter(Boolean).join(" \u00b7 "));
+  const normTitle = normalizeText(title);
+  const normBody = normalizeText(body.filter(Boolean).join(" \u00b7 "));
   let total = 0;
+  let matchedGroupCount = 0;
 
   for (let g = 0; g < tokenGroups.length; g++) {
     const alternatives = tokenGroups[g];
     const primaryToken = rawTokens[g];
-    let matchedGroupScore = 0;
+    let bestGroupScore = 0;
 
     for (const alt of alternatives) {
       const isPrimary = alt === primaryToken;
-      const factor = isPrimary ? 1.0 : 0.8;
+      const factor = isPrimary ? 1.0 : 0.82;
 
       if (normTitle === alt) {
-        matchedGroupScore = Math.max(matchedGroupScore, 180 * factor);
+        bestGroupScore = Math.max(bestGroupScore, 200 * factor);
       } else if (normTitle.startsWith(alt + " ") || normTitle.endsWith(" " + alt)) {
-        matchedGroupScore = Math.max(matchedGroupScore, 140 * factor);
-      } else if (normTitle.includes(alt)) {
-        matchedGroupScore = Math.max(matchedGroupScore, 100 * factor);
-      } else if (isFuzzyMatch(normTitle, alt)) {
-        matchedGroupScore = Math.max(matchedGroupScore, 70 * factor);
-      } else if (normBody.includes(alt)) {
-        matchedGroupScore = Math.max(matchedGroupScore, 35 * factor);
+        bestGroupScore = Math.max(bestGroupScore, 160 * factor);
+      } else {
+        const titleStrength = tokenInText(alt, normTitle);
+        if (titleStrength > 0) {
+          bestGroupScore = Math.max(
+            bestGroupScore,
+            (titleStrength >= 0.95 ? 130 : 90) * factor * titleStrength,
+          );
+        } else {
+          const bodyStrength = tokenInText(alt, normBody);
+          if (bodyStrength > 0) {
+            bestGroupScore = Math.max(
+              bestGroupScore,
+              (bodyStrength >= 0.95 ? 45 : 30) * factor * bodyStrength,
+            );
+          }
+        }
       }
     }
 
-    if (matchedGroupScore === 0) return 0; // Strict AND condition across token groups
-    total += matchedGroupScore;
+    if (bestGroupScore > 0) {
+      matchedGroupCount++;
+      total += bestGroupScore;
+    }
+  }
+
+  if (matchedGroupCount === 0) return 0;
+
+  // Multi-term relaxation: allows matching queries even when imprecise
+  const requiredMatches =
+    rawTokens.length <= 1
+      ? 1
+      : rawTokens.length === 2
+        ? 1
+        : Math.max(1, Math.floor(rawTokens.length * 0.33));
+
+  if (matchedGroupCount < requiredMatches) {
+    return 0;
+  }
+
+  // Completeness multiplier: rewarding documents that match more or all query terms
+  const coverageRatio = matchedGroupCount / rawTokens.length;
+  total = total * (0.6 + coverageRatio * 1.4);
+
+  // Exact full phrase bonus if the user's entire query appears
+  if (normalizedFullQuery && normalizedFullQuery.length >= 4) {
+    if (normTitle.includes(normalizedFullQuery)) {
+      total += 260;
+    } else if (normBody.includes(normalizedFullQuery)) {
+      total += 110;
+    }
   }
 
   // Bonus if the item specifically matches the currently selected school
@@ -423,6 +546,7 @@ const STATIC_PAGES: StaticPage[] = [
 
 /** Searches every public dataset with strict expiration awareness and status priority. */
 export function globalSearch(query: string, sources: SearchSources): GlobalSearchResult[] {
+  const normQuery = normalizeText(query);
   const rawTokens = tokenize(query);
   if (rawTokens.length === 0) return [];
   const tokenGroups = expandTokens(rawTokens);
@@ -440,7 +564,15 @@ export function globalSearch(query: string, sources: SearchSources): GlobalSearc
     external?: boolean,
     itemSchoolId?: string | null,
   ) => {
-    const rawScore = scoreFields(tokenGroups, rawTokens, title, body, itemSchoolId, schoolId);
+    const rawScore = scoreFields(
+      tokenGroups,
+      rawTokens,
+      title,
+      body,
+      itemSchoolId,
+      schoolId,
+      normQuery,
+    );
     if (rawScore <= 0) return;
 
     let lifecycleStatus: ContentStatus = "active";

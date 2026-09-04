@@ -451,7 +451,7 @@ export function ArticleButtonDesignerDialog({
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => setShape(s.id as any)}
+                    onClick={() => setShape(s.id as ArticleButtonConfig["shape"])}
                     className={`flex flex-col items-center justify-center rounded-xl border p-2 text-center transition-all ${
                       shape === s.id
                         ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
@@ -479,7 +479,7 @@ export function ArticleButtonDesignerDialog({
                   <button
                     key={st.id}
                     type="button"
-                    onClick={() => setStyleType(st.id as any)}
+                    onClick={() => setStyleType(st.id as ArticleButtonConfig["styleType"])}
                     className={`rounded-xl border p-2 text-center text-xs transition-all ${
                       styleType === st.id
                         ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
@@ -499,7 +499,7 @@ export function ArticleButtonDesignerDialog({
               <label className="text-xs font-bold text-foreground block mb-1">Tamaño</label>
               <select
                 value={size}
-                onChange={(e) => setSize(e.target.value as any)}
+                onChange={(e) => setSize(e.target.value as ArticleButtonConfig["size"])}
                 className="w-full rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold"
               >
                 <option value="sm">Pequeño</option>
@@ -512,7 +512,7 @@ export function ArticleButtonDesignerDialog({
               <label className="text-xs font-bold text-foreground block mb-1">Alineación</label>
               <select
                 value={align}
-                onChange={(e) => setAlign(e.target.value as any)}
+                onChange={(e) => setAlign(e.target.value as ArticleButtonConfig["align"])}
                 className="w-full rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold"
               >
                 <option value="center">Centrado</option>
@@ -526,7 +526,7 @@ export function ArticleButtonDesignerDialog({
               <label className="text-xs font-bold text-foreground block mb-1">Icono</label>
               <select
                 value={icon}
-                onChange={(e) => setIcon(e.target.value as any)}
+                onChange={(e) => setIcon(e.target.value as ArticleButtonConfig["icon"])}
                 className="w-full rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-semibold"
               >
                 <option value="arrow">Flecha Siguiente (→)</option>
@@ -544,7 +544,9 @@ export function ArticleButtonDesignerDialog({
               <label className="text-xs font-bold text-foreground block mb-1">Insertar En</label>
               <select
                 value={insertPosition}
-                onChange={(e) => setInsertPosition(e.target.value as any)}
+                onChange={(e) =>
+                  setInsertPosition(e.target.value as ArticleButtonConfig["insertPosition"])
+                }
                 className="w-full rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-bold text-primary"
               >
                 <option value="end">Al final del artículo</option>

@@ -83,11 +83,24 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
+    id: "ia_creator_group",
+    title: "Inteligencia Artificial",
+    items: [
+      {
+        to: "/admin/creador-ia",
+        label: "Creador con IA",
+        icon: Sparkles,
+        badge: "Nuevo ✨",
+      },
+    ],
+  },
+  {
     id: "contenido_publico",
     title: "Secciones del Menú Público (Editar Contenido)",
     items: [
       { to: "/admin/anuncios", label: "Inicio y Avisos", icon: Megaphone, badge: "Portada" },
-      { to: "/admin/calendario", label: "Calendario Escolar", icon: CalendarDays },
+      { to: "/admin/eventos", label: "Eventos", icon: CalendarDays, badge: "Nuevo" },
+      { to: "/admin/calendario", label: "Calendario Escolar", icon: CalendarClock },
       { to: "/admin/articulos", label: "Artículos y Guías", icon: BookOpen },
       { to: "/admin/categorias", label: "Categorías de Temas", icon: FolderTree },
       { to: "/admin/programas", label: "Programas Académicos", icon: GraduationCap },

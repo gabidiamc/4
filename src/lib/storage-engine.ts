@@ -172,19 +172,19 @@ export function readFromUnifiedStorage<T = any>(table: string): T[] | null {
 }
 
 /**
- * Save table across all 4 layers:
- * 1. In-Memory
- * 2. LocalStorage (best effort)
- * 3. IndexedDB (guaranteed persistent high-capacity browser store)
- * 4. Server Disk API (/api/storage backed by persistent_db.json)
+ * Save table across all 4 layers synchronously and asynchronously:
+ * 1. In-Memory (instant)
+ * 2. LocalStorage (instant synchronous)
+ * 3. Browser IndexedDB (persistent)
+ * 4. Server Disk Storage (/api/storage backed by persistent_db.json) - awaited
  */
-export function writeToUnifiedStorage(table: string, rows: unknown): void {
+export async function saveToUnifiedStorage(table: string, rows: unknown): Promise<boolean> {
   const key = cacheKey(table);
 
   // 1. In-Memory
   memoryStore.set(key, rows);
 
-  // 2. LocalStorage (best-effort)
+  // 2. LocalStorage (best-effort synchronous)
   if (typeof window !== "undefined") {
     try {
       const serialized = JSON.stringify(rows);
@@ -195,22 +195,32 @@ export function writeToUnifiedStorage(table: string, rows: unknown): void {
   }
 
   // 3. Browser IndexedDB
-  void idbSet(table, rows);
+  await idbSet(table, rows);
 
-  // 4. Server Disk Storage
+  // 4. Server Disk Storage (AWAITED to guarantee persistence before reload)
   if (typeof window !== "undefined" && typeof fetch !== "undefined") {
     try {
-      void fetch(`/api/storage/${table}`, {
+      const res = await fetch(`/api/storage/${table}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ rows: Array.isArray(rows) ? rows : [rows] }),
-      }).catch((e) => {
-        console.warn(`[StorageEngine] Server sync warning for ${table}:`, e);
       });
-    } catch {
-      // ignore
+      if (!res.ok) {
+        console.warn(`[StorageEngine] Server persist notice for ${table}: HTTP ${res.status}`);
+      }
+    } catch (e) {
+      console.warn(`[StorageEngine] Server persist warning for ${table}:`, e);
     }
   }
+
+  return true;
+}
+
+/**
+ * Save table across all 4 layers (non-blocking wrapper).
+ */
+export function writeToUnifiedStorage(table: string, rows: unknown): void {
+  void saveToUnifiedStorage(table, rows);
 }
 
 /**
@@ -286,17 +296,12 @@ export async function initUnifiedStorageEngine(onHydrated?: () => void): Promise
         for (const [table, sRows] of Object.entries(serverDb)) {
           if (Array.isArray(sRows) && sRows.length > 0) {
             const key = cacheKey(table);
-            const currentMem = memoryStore.get(key);
-
-            // If server has data and local is empty, or server data is authoritative:
-            if (!Array.isArray(currentMem) || currentMem.length === 0) {
-              memoryStore.set(key, sRows);
-              void idbSet(table, sRows);
-              try {
-                safeSetItem(key, JSON.stringify(sRows));
-              } catch {
-                // ignore
-              }
+            memoryStore.set(key, sRows);
+            void idbSet(table, sRows);
+            try {
+              safeSetItem(key, JSON.stringify(sRows));
+            } catch {
+              // ignore
             }
           }
         }
