@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache, notifyContentUpdated } from "./sync";
+import { saveToUnifiedStorage, fetchTableFromStorage, notifySaveSuccess } from "./storage-engine";
 import type { LanguageCode } from "./i18n";
 import { filterBySchool } from "./school-scope";
 
@@ -86,6 +87,18 @@ export const DEFAULT_PUBLIC_MENU_ITEMS: PublicMenuItem[] = [
     admin_route: "/admin/calendario",
   },
   {
+    id: "nav_events",
+    section: "main_header",
+    label_es: "Eventos",
+    label_en: "Events",
+    label_kar: "မုၢ်နံၤမုၢ်သီတၢ်မၤ",
+    path: "/eventos",
+    icon: "CalendarCheck",
+    display_order: 35,
+    is_visible: true,
+    admin_route: "/admin/eventos",
+  },
+  {
     id: "nav_resources",
     section: "main_header",
     label_es: "Recursos",
@@ -133,6 +146,18 @@ export const DEFAULT_PUBLIC_MENU_ITEMS: PublicMenuItem[] = [
     display_order: 70,
     is_visible: true,
     admin_route: "/admin/contactos",
+  },
+  {
+    id: "nav_social_media",
+    section: "main_header",
+    label_es: "Redes sociales",
+    label_en: "Social Media",
+    label_kar: "ဆိၡၢလ္ မံဒံယၢ",
+    path: "/redes-sociales",
+    icon: "Share2",
+    display_order: 75,
+    is_visible: true,
+    admin_route: "/admin/redes-sociales",
   },
 
   // --- Submenú de Recursos (Resources Dropdown) ---
@@ -263,7 +288,7 @@ export const DEFAULT_PUBLIC_MENU_ITEMS: PublicMenuItem[] = [
     icon_color: "text-primary bg-primary/10",
     display_order: 70,
     is_visible: true,
-    admin_route: "/admin/recursos",
+    admin_route: "/admin/empleos",
   },
   {
     id: "res_faq",
@@ -279,7 +304,7 @@ export const DEFAULT_PUBLIC_MENU_ITEMS: PublicMenuItem[] = [
     icon_color: "text-primary bg-primary/10",
     display_order: 80,
     is_visible: true,
-    admin_route: "/admin/articulos",
+    admin_route: "/admin/faq",
   },
   {
     id: "res_tutorial",
@@ -433,6 +458,18 @@ export const DEFAULT_PUBLIC_MENU_ITEMS: PublicMenuItem[] = [
     admin_route: "/admin/recursos",
   },
   {
+    id: "footer_social_media",
+    section: "footer_links",
+    label_es: "Redes Sociales",
+    label_en: "Social Media",
+    label_kar: "ဆိၡၢလ္ မံဒံယၢ",
+    path: "/redes-sociales",
+    icon: "Share2",
+    display_order: 115,
+    is_visible: true,
+    admin_route: "/admin/redes-sociales",
+  },
+  {
     id: "footer_bfl",
     section: "footer_links",
     label_es: "Estado BFL",
@@ -548,6 +585,18 @@ export function getCachedPublicMenuItems(): PublicMenuItem[] {
  */
 export async function fetchPublicMenuItems(schoolId?: string): Promise<PublicMenuItem[]> {
   try {
+    // 1. Attempt reading from server storage API
+    const stored = await fetchTableFromStorage<PublicMenuItem>("public_menu_items");
+    if (stored && stored.length > 0) {
+      const merged = mergeWithDefaults(stored);
+      writeCache(NAVIGATION_CACHE_KEY, merged);
+      return filterBySchool(merged, schoolId);
+    }
+  } catch {
+    // silent catch, fall back to cached rows
+  }
+
+  try {
     // Attempt reading from custom database storage or site_settings
     const { data, error } = await (supabase as any)
       .from("site_settings")
@@ -598,13 +647,18 @@ export async function saveAllPublicMenuItems(items: PublicMenuItem[]): Promise<P
   // 1. Write to local storage immediately
   writeCache(NAVIGATION_CACHE_KEY, sorted);
 
-  // 2. Also dispatch real-time content notification so all open tabs update instantly
+  // 2. Persist to Unified Storage across Memory, LocalStorage, IndexedDB and Server Disk
+  await saveToUnifiedStorage("public_menu_items", sorted);
+  await saveToUnifiedStorage(NAVIGATION_CACHE_KEY, sorted);
+
+  // 3. Also dispatch real-time content notification so all open tabs update instantly
   notifyContentUpdated(NAVIGATION_CACHE_KEY);
+  notifyContentUpdated("public_menu_items");
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("dmps_navigation_updated", { detail: { items: sorted } }));
   }
 
-  // 3. Attempt persisting to supabase site_settings if available
+  // 4. Attempt persisting to supabase site_settings if available
   try {
     await (supabase as any)
       .from("site_settings")
@@ -613,6 +667,7 @@ export async function saveAllPublicMenuItems(items: PublicMenuItem[]): Promise<P
     // ignore
   }
 
+  notifySaveSuccess("✓ Menú guardado y confirmado sin ningún problema.");
   return sorted;
 }
 

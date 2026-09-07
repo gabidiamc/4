@@ -92,7 +92,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "DMPS Family Info" },
       {
         name: "description",
-        content: "Multilingual information hub for Des Moines Public Schools families.",
+        content:
+          "Automated and verified official information portal for Des Moines Public Schools families",
       },
       { name: "author", content: "Des Moines Public Schools" },
       {
@@ -109,7 +110,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "DMPS Family Info" },
       {
         property: "og:description",
-        content: "Multilingual information hub for Des Moines Public Schools families.",
+        content:
+          "Automated and verified official information portal for Des Moines Public Schools families",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

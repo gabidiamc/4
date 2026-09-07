@@ -140,6 +140,64 @@ export function safeSetItem(key: string, value: string): boolean {
 }
 
 /**
+ * Merge two lists of rows by ID keeping the newest updated_at.
+ */
+export function mergeRowsById<T = any>(existingRows: T[], incomingRows: T[]): T[] {
+  const map = new Map<string, any>();
+
+  for (const row of existingRows) {
+    if (row && typeof row === "object" && "id" in (row as any)) {
+      map.set(String((row as any).id), row);
+    }
+  }
+
+  for (const inc of incomingRows) {
+    if (!inc || typeof inc !== "object" || !("id" in (inc as any))) continue;
+    const id = String((inc as any).id);
+    const existing = map.get(id);
+    if (!existing) {
+      map.set(id, inc);
+    } else {
+      const existingTime = new Date(existing.updated_at || existing.created_at || 0).getTime();
+      const incTime = new Date((inc as any).updated_at || (inc as any).created_at || 0).getTime();
+      if (incTime >= existingTime) {
+        map.set(id, { ...existing, ...inc });
+      }
+    }
+  }
+
+  return Array.from(map.values()) as T[];
+}
+
+/**
+ * Directly fetches a table from the server disk storage API (/api/storage/:table),
+ * caches it into memory, LocalStorage, and IndexedDB, and returns the rows.
+ */
+export async function fetchTableFromStorage<T = any>(table: string): Promise<T[]> {
+  const key = cacheKey(table);
+  try {
+    const res = await fetch(`/api/storage/${table}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const rows = (json.data ?? json.rows ?? []) as T[];
+      if (Array.isArray(rows) && rows.length > 0) {
+        const local = readFromUnifiedStorage<T>(table) ?? [];
+        const merged = mergeRowsById(local, rows);
+        memoryStore.set(key, merged);
+        safeSetItem(key, JSON.stringify(merged));
+        void idbSet(table, merged);
+        return merged;
+      }
+    }
+  } catch (err) {
+    console.warn(`[StorageEngine] Fetch table ${table} warning:`, err);
+  }
+  return (readFromUnifiedStorage<T>(table) ?? []) as T[];
+}
+
+/**
  * Read table synchronously from Memory -> LocalStorage.
  * Triggers background IndexedDB/Server hydration if unpopulated.
  */
@@ -169,6 +227,31 @@ export function readFromUnifiedStorage<T = any>(table: string): T[] | null {
   }
 
   return null;
+}
+
+/**
+ * Read table synchronously or fetch from server storage if not yet loaded.
+ */
+export async function getOrFetchFromUnifiedStorage<T = any>(table: string): Promise<T[]> {
+  const cached = readFromUnifiedStorage<T>(table);
+  if (cached && cached.length > 0) return cached;
+  return fetchTableFromStorage<T>(table);
+}
+
+/**
+ * Displays an explicit confirmation toast verifying that data was saved permanently.
+ */
+export function notifySaveSuccess(customMessage?: string): void {
+  if (typeof window === "undefined") return;
+  import("sonner")
+    .then(({ toast }) => {
+      toast.success(customMessage || "✓ Se guardó sin ningún problema la información.", {
+        description:
+          "Los cambios han quedado guardados de forma permanente y persistirán al recargar.",
+        duration: 4000,
+      });
+    })
+    .catch(() => {});
 }
 
 /**
@@ -293,27 +376,29 @@ export async function initUnifiedStorageEngine(onHydrated?: () => void): Promise
 
         const toSyncToServer: Record<string, any[]> = {};
 
-        for (const [table, sRows] of Object.entries(serverDb)) {
-          if (Array.isArray(sRows) && sRows.length > 0) {
+        // Reconcile server data with local data by merging ID by ID with newest timestamps
+        const allTableNames = new Set([...Object.keys(serverDb), ...Object.keys(localIdbTables)]);
+
+        for (const table of allTableNames) {
+          const sRows = (serverDb[table] as any[]) ?? [];
+          const lRows = (localIdbTables[table] as any[]) ?? [];
+
+          if (sRows.length > 0 || lRows.length > 0) {
+            // Intelligent merge
+            const merged = mergeRowsById(lRows, sRows);
             const key = cacheKey(table);
-            memoryStore.set(key, sRows);
-            void idbSet(table, sRows);
+            memoryStore.set(key, merged);
+            void idbSet(table, merged);
             try {
-              safeSetItem(key, JSON.stringify(sRows));
+              safeSetItem(key, JSON.stringify(merged));
             } catch {
               // ignore
             }
-          }
-        }
 
-        // If local had tables that server didn't have, push them to server
-        for (const [table, lRows] of Object.entries(localIdbTables)) {
-          if (
-            Array.isArray(lRows) &&
-            lRows.length > 0 &&
-            (!serverDb[table] || serverDb[table].length === 0)
-          ) {
-            toSyncToServer[table] = lRows;
+            // If local had changes that are newer or missing on server, schedule server sync
+            if (JSON.stringify(merged) !== JSON.stringify(sRows)) {
+              toSyncToServer[table] = merged;
+            }
           }
         }
 

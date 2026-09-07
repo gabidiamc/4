@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import logoName from "@/assets/dmps-info-logo.png";
 import logoMark from "@/assets/dmps-info-logo.png";
@@ -18,14 +18,22 @@ export function SiteLogo({
   compact?: boolean;
 }) {
   const { resolved } = useTheme();
-  const { data: appearance, refetch } = useQuery({
+  const [realtimeAppearance, setRealtimeAppearance] = useState<AppearanceRow | null>(null);
+
+  const { data: queriedAppearance, refetch } = useQuery({
     queryKey: ["appearance"],
     queryFn: fetchAppearance,
-    staleTime: 10 * 1000,
+    staleTime: 5 * 1000,
   });
 
+  const appearance = realtimeAppearance ?? queriedAppearance;
+
   useEffect(() => {
-    const handleUpdate = () => {
+    const handleUpdate = (e: Event) => {
+      const customEvt = e as CustomEvent<AppearanceRow>;
+      if (customEvt?.detail && typeof customEvt.detail === "object") {
+        setRealtimeAppearance(customEvt.detail);
+      }
       void refetch();
     };
     window.addEventListener("dmps_appearance_updated", handleUpdate);
@@ -49,9 +57,17 @@ export function SiteLogo({
   }, [appearance?.favicon_url]);
 
   const { selectedSchool } = useSchool();
-  const themed = resolved === "dark" ? appearance?.logo_dark_url : appearance?.logo_light_url;
-  const custom = themed || appearance?.logo_url || null;
-  const src = custom ?? (variant === "full" ? logoName : logoMark);
+  // Primary custom logo takes priority; fallback to theme-specific overrides if configured
+  let custom: string | null = null;
+  if (resolved === "dark" && appearance?.logo_dark_url) {
+    custom = appearance.logo_dark_url;
+  } else if (resolved === "light" && appearance?.logo_light_url) {
+    custom = appearance.logo_light_url;
+  } else if (appearance?.logo_url) {
+    custom = appearance.logo_url;
+  }
+
+  const src = custom || (variant === "full" ? logoName : logoMark);
   const alt = appearance?.logo_alt ?? `DMPS Connect — ${selectedSchool.name}`;
   const height = Math.min(Math.max(appearance?.logo_height ?? 64, 32), 160);
 

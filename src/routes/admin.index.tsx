@@ -119,52 +119,46 @@ function AdminDashboard() {
       nextWeekDate.setDate(nextWeekDate.getDate() + 7);
       const nextWeekIso = nextWeekDate.toISOString().slice(0, 10);
 
-      // 1. Articles query
-      const { data: articles = [] } = await supabase
-        .from("articles")
-        .select(
-          "id, title, status, source_name, official_url, starts_at, ends_at, school_id, article_translations(language_code, title)",
-        );
-
-      // 2. Announcements query
-      const { data: announcements = [] } = await supabase
-        .from("announcements")
-        .select(
-          "id, status, level, starts_at, expires_at, link_url, announcement_translations(language_code, title)",
-        );
-
-      // 3. Events query
-      const { data: events = [] } = await supabase
-        .from("events")
-        .select("id, title, status, start_date, end_date, official_url");
-
-      // 4. Update requests query
-      const { data: updateRequests = [] } = await supabase
-        .from("update_requests")
-        .select("id, status, kind, message, created_at");
-
-      // 5. Category counts in parallel
+      // 1. Fetch tables via listRows with school scoping
       const [
-        { count: categoriesCount },
-        { count: programsCount },
-        { count: studentProgramsCount },
-        { count: activitiesCount },
-        { count: resourcesCount },
-        { count: contactsCount },
-        { count: servicesCount },
-        { count: dartRoutesCount },
-        { count: schoolsCount },
+        articles,
+        announcements,
+        events,
+        updateRequests,
+        categories,
+        programs,
+        studentPrograms,
+        activities,
+        resources,
+        contacts,
+        services,
+        dartRoutes,
+        schools,
       ] = await Promise.all([
-        supabase.from("categories").select("*", { count: "exact", head: true }),
-        supabase.from("programs").select("*", { count: "exact", head: true }),
-        supabase.from("student_programs").select("*", { count: "exact", head: true }),
-        supabase.from("activities").select("*", { count: "exact", head: true }),
-        supabase.from("resources").select("*", { count: "exact", head: true }),
-        supabase.from("contacts").select("*", { count: "exact", head: true }),
-        supabase.from("services").select("*", { count: "exact", head: true }),
-        supabase.from("dart_routes").select("*", { count: "exact", head: true }),
-        supabase.from("schools").select("*", { count: "exact", head: true }),
+        listRows("articles", "updated_at", false, adminSchoolFilter).catch(() => []),
+        listRows("announcements", "created_at", false, adminSchoolFilter).catch(() => []),
+        listRows("events", "start_date", true, adminSchoolFilter).catch(() => []),
+        listRows("update_requests", "created_at", false, null).catch(() => []),
+        listRows("categories", "display_order", true, adminSchoolFilter).catch(() => []),
+        listRows("programs", "display_order", true, adminSchoolFilter).catch(() => []),
+        listRows("student_programs", "display_order", true, adminSchoolFilter).catch(() => []),
+        listRows("activities", "display_order", true, adminSchoolFilter).catch(() => []),
+        listRows("resources", "display_order", true, adminSchoolFilter).catch(() => []),
+        listRows("contacts", "display_order", true, adminSchoolFilter).catch(() => []),
+        listRows("services", "display_order", true, adminSchoolFilter).catch(() => []),
+        listRows("dart_routes", "route_number", true, adminSchoolFilter).catch(() => []),
+        listRows("schools", "name", true, null).catch(() => []),
       ]);
+
+      const categoriesCount = categories.length;
+      const programsCount = programs.length;
+      const studentProgramsCount = studentPrograms.length;
+      const activitiesCount = activities.length;
+      const resourcesCount = resources.length;
+      const contactsCount = contacts.length;
+      const servicesCount = services.length;
+      const dartRoutesCount = dartRoutes.length;
+      const schoolsCount = schools.length;
 
       // Calculate critical attention metrics
       const draftsCount =

@@ -40,6 +40,8 @@ import { NGOT_TEAMS } from "@/lib/ngot-teams";
 import { useI18n } from "@/lib/i18n";
 import { useSchool } from "@/lib/school";
 import { fetchPublicMenuItems, localizedMenuItem, type PublicMenuItem } from "@/lib/navigation";
+import { fetchSocialMediaChannels, type SocialMediaChannel } from "@/lib/social-media";
+import { SocialPlatformIcon } from "@/components/social-media-icons";
 
 /** Programmatically open or close the mobile menu sheet */
 export function toggleAppMenu(openState?: boolean) {
@@ -72,13 +74,26 @@ export function PublicShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("dmps_set_menu_open", handleMenuEvent);
   }, []);
 
-  // Listen for real-time navigation updates from admin
+  // Listen for real-time navigation and social media updates from admin
   useEffect(() => {
     const handleNavUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ["public_menu_items"] });
     };
+    const handleContentUpdate = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (!detail?.table || detail.table.startsWith("social_media")) {
+        queryClient.invalidateQueries({ queryKey: ["social_media_channels_public"] });
+      }
+      if (!detail?.table || detail.table.startsWith("public_menu")) {
+        queryClient.invalidateQueries({ queryKey: ["public_menu_items"] });
+      }
+    };
     window.addEventListener("dmps_navigation_updated", handleNavUpdate);
-    return () => window.removeEventListener("dmps_navigation_updated", handleNavUpdate);
+    window.addEventListener("dmps_content_updated", handleContentUpdate);
+    return () => {
+      window.removeEventListener("dmps_navigation_updated", handleNavUpdate);
+      window.removeEventListener("dmps_content_updated", handleContentUpdate);
+    };
   }, [queryClient]);
 
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
@@ -91,6 +106,15 @@ export function PublicShell({ children }: { children: ReactNode }) {
   const { data: articles } = useQuery({
     queryKey: ["articles", selectedSchool.id],
     queryFn: () => fetchPublishedArticles(undefined, selectedSchool.id),
+  });
+
+  // Active social media channels configured from admin
+  const { data: socialChannels = [] } = useQuery({
+    queryKey: ["social_media_channels_public"],
+    queryFn: async () => {
+      const channels = await fetchSocialMediaChannels();
+      return channels.filter((c) => c.is_active);
+    },
   });
 
   // Dynamic editable navigation menu items
@@ -857,12 +881,61 @@ export function PublicShell({ children }: { children: ReactNode }) {
             </ul>
           </nav>
           <div>
-            <h2 className="text-sm font-bold uppercase tracking-wide">{t("contact.title")}</h2>
-            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li>{settings?.contact_email ?? "families@dmschools.org"}</li>
-              <li>{settings?.contact_phone ?? "(515) 242-7911"}</li>
-              <li>{t("contact.hoursValue")}</li>
-            </ul>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wide">Redes sociales</h2>
+              <Link
+                to="/redes-sociales"
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Ver todas →
+              </Link>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Sigue las cuentas oficiales activas de nuestra comunidad educativa:
+            </p>
+
+            {/* Logos con color oficial de cada app activada desde el panel admin */}
+            <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
+              {socialChannels.length > 0 ? (
+                socialChannels.map((ch) => (
+                  <a
+                    key={ch.id}
+                    href={ch.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`${ch.name} (${ch.handle})`}
+                    className="group relative flex size-10 items-center justify-center rounded-xl shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
+                    style={{
+                      backgroundColor:
+                        ch.platform === "instagram"
+                          ? "#E4405F"
+                          : ch.platform === "youtube"
+                            ? "#FF0000"
+                            : ch.platform === "tiktok"
+                              ? "#010101"
+                              : ch.platform === "facebook"
+                                ? "#1877F2"
+                                : ch.platform === "twitter"
+                                  ? "#000000"
+                                  : ch.platform === "whatsapp"
+                                    ? "#25D366"
+                                    : ch.brand_color || "#3B82F6",
+                      color: "#ffffff",
+                    }}
+                  >
+                    <SocialPlatformIcon platform={ch.platform} className="size-5" />
+                    <span className="sr-only">{ch.name}</span>
+                  </a>
+                ))
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    No hay redes activas actualmente.
+                  </span>
+                </div>
+              )}
+            </div>
+
             <div className="mt-4 flex flex-col items-start gap-3">
               <TrustpilotReviewButton />
             </div>

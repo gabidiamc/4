@@ -1,5 +1,6 @@
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import { readCache, writeCache } from "./sync";
+import { fetchTableFromStorage } from "./storage-engine";
 import type { LanguageCode } from "./i18n";
 import { filterBySchool, filterBySchoolStrict } from "./school-scope";
 import { computeContentStatus, isItemActive } from "./content-lifecycle";
@@ -78,9 +79,24 @@ export async function fetchCategories(schoolId?: string): Promise<CategoryRow[]>
   }
 
   // Offline / Unified Storage fallback: merge with category_translations if needed
-  const cached = readCache<Record<string, unknown>>("categories") ?? [];
+  let cached = readCache<Record<string, unknown>>("categories") ?? [];
+  if (cached.length === 0) {
+    try {
+      cached = await fetchTableFromStorage<Record<string, unknown>>("categories");
+    } catch {
+      // ignore
+    }
+  }
+
   if (cached.length > 0) {
-    const trs = readCache<Record<string, unknown>>("category_translations") ?? [];
+    let trs = readCache<Record<string, unknown>>("category_translations") ?? [];
+    if (trs.length === 0) {
+      try {
+        trs = await fetchTableFromStorage<Record<string, unknown>>("category_translations");
+      } catch {
+        // ignore
+      }
+    }
     const merged = cached.map((c) => ({
       ...c,
       category_translations: mergeTranslations(
@@ -151,10 +167,32 @@ export async function fetchPublishedArticles(
   }
 
   // Offline / Cache fallback: merge with article_translations and categories
-  const cached = readCache<Record<string, unknown>>("articles") ?? [];
+  let cached = readCache<Record<string, unknown>>("articles") ?? [];
+  if (cached.length === 0) {
+    try {
+      cached = await fetchTableFromStorage<Record<string, unknown>>("articles");
+    } catch {
+      // ignore
+    }
+  }
+
   if (cached.length > 0) {
-    const trs = readCache<Record<string, unknown>>("article_translations") ?? [];
-    const cats = readCache<Record<string, unknown>>("categories") ?? [];
+    let trs = readCache<Record<string, unknown>>("article_translations") ?? [];
+    if (trs.length === 0) {
+      try {
+        trs = await fetchTableFromStorage<Record<string, unknown>>("article_translations");
+      } catch {
+        // ignore
+      }
+    }
+    let cats = readCache<Record<string, unknown>>("categories") ?? [];
+    if (cats.length === 0) {
+      try {
+        cats = await fetchTableFromStorage<Record<string, unknown>>("categories");
+      } catch {
+        // ignore
+      }
+    }
 
     const merged = cached
       .filter((a) => a["status"] === "published" || !a["status"])
@@ -452,9 +490,32 @@ export async function fetchEvents(schoolId?: string): Promise<EventRow[]> {
     }
   }
 
-  const cached = readCache<Record<string, unknown>>("events") ?? [];
-  const trs = readCache<Record<string, unknown>>("event_translations") ?? [];
-  const merged = cached
+  let cached = readCache<Record<string, unknown>>("events") ?? [];
+  let trs = readCache<Record<string, unknown>>("event_translations") ?? [];
+
+  if (cached.length === 0) {
+    try {
+      cached = await fetchTableFromStorage<Record<string, unknown>>("events");
+      if (cached && cached.length > 0) {
+        writeCache("events", cached);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (trs.length === 0) {
+    try {
+      trs = await fetchTableFromStorage<Record<string, unknown>>("event_translations");
+      if (trs && trs.length > 0) {
+        writeCache("event_translations", trs);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const merged = (cached || [])
     .filter((e) => e["status"] === "published" || !e["status"])
     .map((e) => ({
       ...e,
@@ -510,8 +571,24 @@ export async function fetchActiveAnnouncements(schoolId?: string): Promise<Annou
   }
 
   // Offline only: last successful read from this device.
-  const cached = readCache<Record<string, unknown>>("announcements") ?? [];
-  const trs = readCache<Record<string, unknown>>("announcement_translations") ?? [];
+  let cached = readCache<Record<string, unknown>>("announcements") ?? [];
+  if (cached.length === 0) {
+    try {
+      cached = await fetchTableFromStorage<Record<string, unknown>>("announcements");
+    } catch {
+      // ignore
+    }
+  }
+
+  let trs = readCache<Record<string, unknown>>("announcement_translations") ?? [];
+  if (trs.length === 0) {
+    try {
+      trs = await fetchTableFromStorage<Record<string, unknown>>("announcement_translations");
+    } catch {
+      // ignore
+    }
+  }
+
   const merged = cached.map((a) => ({
     ...a,
     announcement_translations: mergeTranslations(
@@ -539,8 +616,24 @@ export async function fetchAllAnnouncements(schoolId?: string): Promise<Announce
       // ignore
     }
   }
-  const cached = readCache<Record<string, unknown>>("announcements") ?? [];
-  const trs = readCache<Record<string, unknown>>("announcement_translations") ?? [];
+  let cached = readCache<Record<string, unknown>>("announcements") ?? [];
+  if (cached.length === 0) {
+    try {
+      cached = await fetchTableFromStorage<Record<string, unknown>>("announcements");
+    } catch {
+      // ignore
+    }
+  }
+
+  let trs = readCache<Record<string, unknown>>("announcement_translations") ?? [];
+  if (trs.length === 0) {
+    try {
+      trs = await fetchTableFromStorage<Record<string, unknown>>("announcement_translations");
+    } catch {
+      // ignore
+    }
+  }
+
   const merged = cached.map((a) => ({
     ...a,
     announcement_translations: mergeTranslations(
@@ -569,8 +662,88 @@ export type FaqRow = {
   id: string;
   display_order: number;
   category_id: string | null;
+  school_id?: string | null;
   faq_translations: { language_code: string; question: string; answer: string }[];
 };
+
+export const DEFAULT_FALLBACK_FAQS: FaqRow[] = [
+  {
+    id: "faq-hours",
+    display_order: 1,
+    category_id: null,
+    faq_translations: [
+      {
+        language_code: "es",
+        question: "¿A qué hora inician y terminan las clases?",
+        answer:
+          "El horario habitual de clases en Lincoln High School y East High School es de 8:25 AM a 3:25 PM de lunes a viernes. Los miércoles hay salida temprana a las 2:10 PM.",
+      },
+      {
+        language_code: "en",
+        question: "What time does school start and dismiss?",
+        answer:
+          "Regular school hours at Lincoln High and East High are 8:25 AM to 3:25 PM Monday through Friday, with early dismissal on Wednesdays at 2:10 PM.",
+      },
+    ],
+  },
+  {
+    id: "faq-bus",
+    display_order: 2,
+    category_id: null,
+    faq_translations: [
+      {
+        language_code: "es",
+        question: "¿Los estudiantes pagan por viajar en autobús DART?",
+        answer:
+          "No. Todos los estudiantes de secundaria de DMPS (Lincoln y East) viajan gratis en los autobuses públicos de DART durante todo el año mostrando su credencial escolar.",
+      },
+      {
+        language_code: "en",
+        question: "Do students pay to ride DART buses?",
+        answer:
+          "No. All DMPS high school students ride DART transit buses completely free all year round by showing their student ID.",
+      },
+    ],
+  },
+  {
+    id: "faq-attendance",
+    display_order: 3,
+    category_id: null,
+    faq_translations: [
+      {
+        language_code: "es",
+        question: "¿Cómo reporto una ausencia o falta escolar?",
+        answer:
+          "Llame a la oficina de asistencia de la escuela antes de las 9:00 AM o envíe un justificante a través del Portal para Padres Infinite Campus.",
+      },
+      {
+        language_code: "en",
+        question: "How do I report a student absence?",
+        answer:
+          "Call the school attendance line before 9:00 AM or submit an excuse via the Infinite Campus Parent Portal.",
+      },
+    ],
+  },
+  {
+    id: "faq-bfl",
+    display_order: 4,
+    category_id: null,
+    faq_translations: [
+      {
+        language_code: "es",
+        question: "¿Cómo contacto a un Enlace Familiar Bilingüe (BFL)?",
+        answer:
+          "Puede contactar a los enlaces bilingües en la sección de Directorio y Contacto del portal o consultar en la oficina principal de su escuela.",
+      },
+      {
+        language_code: "en",
+        question: "How do I reach a Bilingual Family Liaison (BFL)?",
+        answer:
+          "You can find contact numbers and emails in the Contact directory of this portal or ask at the front office.",
+      },
+    ],
+  },
+];
 
 export async function fetchFaqs(schoolId?: string): Promise<FaqRow[]> {
   if (isSupabaseConfigured()) {
@@ -603,7 +776,8 @@ export async function fetchFaqs(schoolId?: string): Promise<FaqRow[]> {
         trs.filter((t) => t["faq_id"] === f["id"]),
       ),
     })) as unknown as FaqRow[];
-  return filterBySchool(merged, schoolId);
+  const finalFaqs = merged.length > 0 ? merged : DEFAULT_FALLBACK_FAQS;
+  return filterBySchool(finalFaqs, schoolId);
 }
 
 export function localizedFaq(f: FaqRow, lang: LanguageCode, schoolId?: string) {

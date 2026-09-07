@@ -2,7 +2,13 @@
 import { useEffect, useState } from "react";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import { filterBySchool, schoolIdForStorage } from "./school-scope";
-import { readCache, writeCache, saveToUnifiedStorage, notifyContentUpdated } from "./sync";
+import {
+  readCache,
+  writeCache,
+  saveToUnifiedStorage,
+  notifyContentUpdated,
+  fetchTableFromStorage,
+} from "./sync";
 import { SEED_CATEGORIES, SEED_ARTICLES } from "./school-content-data";
 import { INITIAL_SCHOOLS } from "./school";
 import { INITIAL_LINCOLN_RESOURCES } from "./resources";
@@ -71,6 +77,18 @@ export async function listRows(
     }
   } else {
     rows = readCache<Row>(name) ?? [];
+  }
+
+  // If local cache has no rows, fetch from server disk storage API first
+  if (!rows || rows.length === 0) {
+    try {
+      const fromServer = await fetchTableFromStorage<Row>(name);
+      if (fromServer && fromServer.length > 0) {
+        rows = fromServer;
+      }
+    } catch {
+      // ignore
+    }
   }
 
   // Fallback to starter defaults purely in-memory (DO NOT overwrite persistent storage)
@@ -195,7 +213,34 @@ export async function upsertRow(name: string, values: Row): Promise<Row> {
 
   // 1. Immediately update unified storage across all layers and await server persistence
   try {
-    const currentRows = readCache<Row>(name) ?? [];
+    let currentRows = readCache<Row>(name) ?? [];
+    if (currentRows.length === 0) {
+      try {
+        const fromServer = await fetchTableFromStorage<Row>(name);
+        if (fromServer && fromServer.length > 0) {
+          currentRows = fromServer;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    // If still empty and table has defaults, use defaults as base
+    if (currentRows.length === 0) {
+      if (name === "categories")
+        currentRows = SEED_CATEGORIES.map((c) => ({
+          ...c,
+          category_translations: undefined,
+        })) as unknown as Row[];
+      else if (name === "articles")
+        currentRows = SEED_ARTICLES.map((a) => ({
+          ...a,
+          article_translations: undefined,
+        })) as unknown as Row[];
+      else if (name === "schools") currentRows = INITIAL_SCHOOLS as unknown as Row[];
+      else if (name === "resources") currentRows = INITIAL_LINCOLN_RESOURCES as unknown as Row[];
+      else if (name === "contacts") currentRows = SEED_CONTACTS as unknown as Row[];
+    }
+
     const existingIndex = currentRows.findIndex((r) => String(r.id) === String(id));
     let updatedRows: Row[];
     if (existingIndex >= 0) {
@@ -205,6 +250,7 @@ export async function upsertRow(name: string, values: Row): Promise<Row> {
       updatedRows = [fullSavedObject, ...currentRows];
     }
     await saveToUnifiedStorage(name, updatedRows);
+    notifyContentUpdated(name);
   } catch (cacheErr) {
     console.warn(`[Cache update warning for ${name}]`, cacheErr);
   }

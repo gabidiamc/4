@@ -37,6 +37,7 @@ const TABLES_WITH_SCHOOL_FIELD = new Set([
   "faqs",
   "categories",
   "resources",
+  "dart_routes",
 ]);
 
 export function CrudManager({
@@ -102,7 +103,7 @@ export function CrudManager({
       return saved;
     },
     onSuccess: () => {
-      toast.success("¡Guardado y sincronizado en vivo exitosamente!");
+      toast.success("✓ Se guardó sin ningún problema la información. Los cambios son permanentes.");
       notifyContentUpdated(table);
       setEditing(null);
       void queryClient.invalidateQueries({ queryKey: ["admin", table] });
@@ -135,7 +136,13 @@ export function CrudManager({
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-extrabold">{title}</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-3xl font-extrabold">{title}</h1>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              Autoguardado permanente
+            </span>
+          </div>
           {description ? <p className="mt-1 text-muted-foreground">{description}</p> : null}
         </div>
         <Button

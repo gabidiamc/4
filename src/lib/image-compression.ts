@@ -15,7 +15,18 @@ export async function compressImageFile(
   file: File,
   options: CompressionOptions = {},
 ): Promise<string> {
-  const { maxWidth = 1280, maxHeight = 1280, quality = 0.82, mimeType = "image/jpeg" } = options;
+  const detectedMime =
+    file.type === "image/png"
+      ? "image/png"
+      : file.type === "image/webp"
+        ? "image/webp"
+        : "image/jpeg";
+  const {
+    maxWidth = 1280,
+    maxHeight = 1280,
+    quality = 0.85,
+    mimeType = options.mimeType ?? detectedMime,
+  } = options;
 
   // If it's a PDF or non-image, read normally as Data URL
   if (!file.type.startsWith("image/")) {

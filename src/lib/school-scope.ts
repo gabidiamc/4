@@ -31,28 +31,15 @@ export function normalizeSchoolId(value: unknown): string {
     return "east";
   }
   if (
-    raw.includes("roosevelt") ||
-    raw.includes("roughrider") ||
-    raw === "sch-roosevelt" ||
-    raw === "dmroosevelt"
+    raw.includes("lincoln") ||
+    raw.includes("railsplitter") ||
+    raw === "sch-lincoln" ||
+    raw === "dmlincoln"
   ) {
-    return "roosevelt";
+    return "lincoln";
   }
-  if (raw.includes("north") || raw.includes("polar") || raw === "sch-north" || raw === "dmnorth") {
-    return "north";
-  }
-  if (
-    raw.includes("hoover") ||
-    raw.includes("husky") ||
-    raw === "sch-hoover" ||
-    raw === "dmhoover"
-  ) {
-    return "hoover";
-  }
-  if (raw.includes("central") || raw === "sch-central" || raw === "dmcentral") {
-    return "central";
-  }
-  return raw;
+  // All other schools have been removed from the system. Map strictly to Lincoln default
+  return "lincoln";
 }
 
 /** Reads the school a record belongs to, falling back to "all" if not specified. */
@@ -69,10 +56,6 @@ export function rowSchoolId(row: Record<string, unknown> | null | undefined): st
       const lower = val.toLowerCase();
       if (lower.includes("lincoln") || lower.includes("railsplitter")) return "lincoln";
       if (lower.includes("east") || lower.includes("scarlet")) return "east";
-      if (lower.includes("roosevelt") || lower.includes("roughrider")) return "roosevelt";
-      if (lower.includes("north") || lower.includes("polar")) return "north";
-      if (lower.includes("hoover") || lower.includes("husky")) return "hoover";
-      if (lower.includes("central")) return "central";
     }
   }
   return "all";

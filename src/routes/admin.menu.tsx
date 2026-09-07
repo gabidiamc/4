@@ -469,6 +469,17 @@ export default function AdminMenuPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link to="/admin/apariencia">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-border text-foreground hover:bg-muted font-medium"
+            >
+              <ImageIcon className="size-4 text-primary" />
+              <span>Ícono y Logotipo Principal</span>
+            </Button>
+          </Link>
+
           <Button
             variant="outline"
             size="sm"

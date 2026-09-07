@@ -1,409 +1,416 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
 import {
   CalendarDays,
   CalendarCheck,
-  Clock,
+  Download,
   ExternalLink,
-  Filter,
-  MapPin,
-  Sparkles,
-  Search,
-  Plus,
-  ArrowRight,
+  Eye,
+  FileText,
+  Maximize2,
+  Minimize2,
+  Printer,
+  RefreshCw,
   School,
+  Search,
+  Sparkles,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  ArrowRight,
+  ShieldCheck,
+  Info,
 } from "lucide-react";
-import { useState, useMemo } from "react";
 
 import { PublicShell } from "@/components/public-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useI18n } from "@/lib/i18n";
 import { useSchool } from "@/lib/school";
-import { fetchEvents, localizedEvent, type EventRow } from "@/lib/content";
+import { getCalendarSettings, type CalendarSettings } from "@/lib/calendar-config";
+import { SchoolEmblem } from "@/components/school-emblem";
 
 export const Route = createFileRoute("/calendario")({
   head: () => ({
     meta: [
-      { title: "Fechas y Calendario Escolar — Familias DMPS" },
+      { title: "Calendario Escolar Oficial — Familias DMPS" },
       {
         name: "description",
         content:
-          "Fechas clave, inicio y fin de clases, días festivos, conferencias y eventos escolares oficiales de Des Moines Public Schools.",
+          "Consulta y descarga el calendario escolar oficial de Des Moines Public Schools (Lincoln High School y East High School).",
       },
-      { property: "og:title", content: "Fechas y Calendario Escolar — Familias DMPS" },
+      { property: "og:title", content: "Calendario Escolar Oficial — Familias DMPS" },
       {
         property: "og:description",
-        content: "Fechas y eventos oficiales del distrito y de las escuelas secundarias.",
+        content:
+          "Calendario escolar oficial con días de clase, recesos festivos y conferencias familiares.",
       },
     ],
   }),
-  component: CalendarPage,
+  component: OfficialCalendarPage,
 });
 
-const EVENT_FILTER_TYPES = [
-  { id: "all", label_es: "Todos los eventos", label_en: "All events" },
-  { id: "no_school", label_es: "Sin clases / Festivos", label_en: "No school / Holidays" },
-  { id: "conference", label_es: "Conferencias", label_en: "Conferences" },
-  { id: "early_dismissal", label_es: "Salida temprana", label_en: "Early dismissal" },
-  { id: "family", label_es: "Eventos familiares", label_en: "Family events" },
-  { id: "sports", label_es: "Deportes", label_en: "Sports" },
-  { id: "academic", label_es: "Académico", label_en: "Academic" },
-];
-
-export function CalendarPage() {
+export function OfficialCalendarPage() {
   const { t, lang } = useI18n();
-  const { selectedSchool } = useSchool();
-  const [selectedEventType, setSelectedEventType] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState("");
-
+  const { selectedSchool, setSelectedSchool, schools } = useSchool();
   const isSpanish = lang === "es";
 
-  // Fetch events from real database / cache populated via Admin Eventos
-  const { data: events = [], isLoading } = useQuery({
-    queryKey: ["public_calendar_events", selectedSchool.id],
-    queryFn: () => fetchEvents(selectedSchool.id),
-  });
+  const [settings, setSettings] = useState<CalendarSettings>(() =>
+    getCalendarSettings(selectedSchool.id),
+  );
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
-  // Filter events
-  const filteredEvents = useMemo(() => {
-    return events.filter((e) => {
-      // Type filter
-      if (selectedEventType !== "all" && e.event_type !== selectedEventType) {
-        return false;
-      }
+  // Sync with school changes and real-time updates from admin
+  useEffect(() => {
+    const update = () => {
+      setSettings(getCalendarSettings(selectedSchool.id));
+      setImageError(false);
+    };
+    update();
 
-      // Search term
-      if (searchTerm.trim()) {
-        const loc = localizedEvent(e, lang, selectedSchool.id);
-        const term = searchTerm.toLowerCase();
-        const titleMatch = (loc.title || e.title || "").toLowerCase().includes(term);
-        const descMatch = (loc.description || e.description || "").toLowerCase().includes(term);
-        const locMatch = (e.location || "").toLowerCase().includes(term);
-        if (!titleMatch && !descMatch && !locMatch) return false;
-      }
+    window.addEventListener("dmps-calendar-updated", update);
+    window.addEventListener("storage", update);
+    return () => {
+      window.removeEventListener("dmps-calendar-updated", update);
+      window.removeEventListener("storage", update);
+    };
+  }, [selectedSchool.id]);
 
-      return true;
-    });
-  }, [events, selectedEventType, searchTerm, lang, selectedSchool.id]);
+  const activeUrl = settings.imageUrl || settings.pdfUrl || "";
+  const isPdf =
+    activeUrl.toLowerCase().includes("application/pdf") || activeUrl.toLowerCase().endsWith(".pdf");
 
-  // Group events by Month (e.g. "Agosto 2026", "Septiembre 2026")
-  const groupedEvents = useMemo(() => {
-    const groups: { monthKey: string; monthLabel: string; items: EventRow[] }[] = [];
+  const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.25, 2.5));
+  const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 0.25, 0.75));
+  const handleResetZoom = () => setZoomLevel(1);
 
-    filteredEvents.forEach((e) => {
-      if (!e.start_date) return;
-      const [year, month] = e.start_date.split("-");
-      const monthKey = `${year}-${month}`;
-
-      const dateObj = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
-      const monthLabel = dateObj.toLocaleDateString(isSpanish ? "es-ES" : "en-US", {
-        month: "long",
-        year: "numeric",
-      });
-
-      let group = groups.find((g) => g.monthKey === monthKey);
-      if (!group) {
-        group = {
-          monthKey,
-          monthLabel: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
-          items: [],
-        };
-        groups.push(group);
-      }
-      group.items.push(e);
-    });
-
-    return groups.sort((a, b) => a.monthKey.localeCompare(b.monthKey));
-  }, [filteredEvents, isSpanish]);
-
-  const getEventTypeBadge = (type: string) => {
-    switch (type) {
-      case "no_school":
-      case "holiday":
-        return (
-          <Badge className="bg-amber-600 text-white font-semibold">
-            {isSpanish ? "Sin clases / Festivo" : "No School / Holiday"}
-          </Badge>
-        );
-      case "conference":
-        return (
-          <Badge className="bg-purple-600 text-white font-semibold">
-            {isSpanish ? "Conferencias" : "Conferences"}
-          </Badge>
-        );
-      case "early_dismissal":
-        return (
-          <Badge className="bg-sky-600 text-white font-semibold">
-            {isSpanish ? "Salida temprana" : "Early Dismissal"}
-          </Badge>
-        );
-      case "family":
-        return (
-          <Badge className="bg-emerald-600 text-white font-semibold">
-            {isSpanish ? "Evento Familiar" : "Family Event"}
-          </Badge>
-        );
-      case "sports":
-        return (
-          <Badge className="bg-blue-600 text-white font-semibold">
-            {isSpanish ? "Deportes" : "Sports"}
-          </Badge>
-        );
-      case "academic":
-        return (
-          <Badge className="bg-indigo-600 text-white font-semibold">
-            {isSpanish ? "Académico" : "Academic"}
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="outline" className="font-semibold capitalize">
-            {type || "General"}
-          </Badge>
-        );
-    }
+  const handlePrint = () => {
+    window.print();
   };
 
   return (
     <PublicShell>
       {/* Hero Header */}
       <section className="hero-wash border-b border-border">
-        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-primary shadow-soft">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-bold text-primary shadow-soft">
                 <CalendarDays className="size-4" aria-hidden="true" />
-                {isSpanish ? "Calendario escolar oficial" : "Official School Calendar"}
-              </span>
-              <h1 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-foreground tracking-tight">
-                {isSpanish ? "Fechas y Calendario Escolar" : "Key School Dates & Calendar"}
+                <span>
+                  {isSpanish ? "Calendario Escolar Oficial" : "Official District Calendar"}
+                </span>
+              </div>
+              <h1 className="mt-3 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-foreground tracking-tight">
+                {isSpanish ? "Calendario Escolar 2026-2027" : "2026-2027 School Calendar"}
               </h1>
-              <p className="mt-3 max-w-2xl text-base sm:text-lg text-muted-foreground">
+              <p className="mt-2 text-base text-muted-foreground max-w-2xl">
                 {isSpanish
-                  ? `Fechas clave, conferencias de familias, días sin clases y eventos oficiales de ${selectedSchool.name}.`
-                  : `Key dates, family conferences, no-school days, and official activities for ${selectedSchool.name}.`}
+                  ? `Visualiza y descarga el calendario oficial de ${selectedSchool.name}. Días lectivos, recesos, conferencias y días sin clases.`
+                  : `View and download the official school calendar for ${selectedSchool.name}. School days, holidays, and family conferences.`}
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <Button asChild variant="outline" className="rounded-xl shadow-soft">
-                <Link to="/eventos">
-                  <Sparkles className="mr-2 size-4 text-primary" />
-                  {isSpanish ? "Ver Todos los Eventos" : "View All Events"}
-                </Link>
-              </Button>
+            {/* School Switcher & Quick Actions */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2 bg-card border border-border p-1 rounded-2xl shadow-soft">
+                {schools.map((school) => {
+                  const active = selectedSchool.id === school.id;
+                  return (
+                    <button
+                      key={school.id}
+                      type="button"
+                      onClick={() => setSelectedSchool(school.id)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        active
+                          ? "bg-primary text-white shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <SchoolEmblem schoolId={school.id} size="sm" />
+                      <span>{school.id === "east" ? "East High" : "Lincoln High"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {activeUrl && (
+                <Button asChild className="rounded-xl font-bold gap-2 shadow-soft">
+                  <a
+                    href={activeUrl}
+                    download="Calendario_Escolar_DMPS"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Download className="size-4" />
+                    <span>{isSpanish ? "Descargar" : "Download"}</span>
+                  </a>
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Main Events Area */}
-      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        {/* Filter bar */}
-        <div className="space-y-4 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            {/* Search within events */}
-            <div className="relative max-w-md w-full">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={
-                  isSpanish ? "Buscar eventos por nombre, lugar..." : "Search dates and events..."
-                }
-                className="pl-9 rounded-xl"
-              />
+      {/* Banner linking to Separate Events Page */}
+      <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+        <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-center gap-3.5">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-xs">
+              <CalendarCheck className="size-6" />
+            </span>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-foreground">
+                {isSpanish
+                  ? "¿Buscas eventos escolares y reuniones específicas?"
+                  : "Looking for specific events and meetings?"}
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                {isSpanish
+                  ? "Consulta conferencias para padres, partidos deportivos, talleres y reuniones en nuestra sección de Eventos."
+                  : "Explore parent conferences, athletics, workshops, and school meetings in the Events section."}
+              </p>
             </div>
-
-            {/* Total counter */}
-            <p className="text-sm font-medium text-muted-foreground">
-              {filteredEvents.length}{" "}
-              {filteredEvents.length === 1
-                ? isSpanish
-                  ? "evento programado"
-                  : "scheduled event"
-                : isSpanish
-                  ? "eventos programados"
-                  : "scheduled events"}
-            </p>
           </div>
 
-          {/* Type filter chips */}
-          <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-            <div className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
-              {EVENT_FILTER_TYPES.map((type) => (
-                <button
-                  key={type.id}
-                  onClick={() => setSelectedEventType(type.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                    selectedEventType === type.id
-                      ? "bg-primary text-primary-foreground shadow-2xs"
-                      : "border border-border bg-card text-foreground hover:bg-muted/40"
-                  }`}
+          <Button
+            asChild
+            variant="default"
+            size="sm"
+            className="rounded-xl font-bold gap-2 shrink-0"
+          >
+            <Link to="/eventos">
+              <span>{isSpanish ? "Ver Lista de Eventos" : "View Events List"}</span>
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* Calendar Viewer Container */}
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-6">
+        {/* Controls toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-3.5 rounded-2xl shadow-soft">
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className="text-xs font-bold text-primary border-primary/30 bg-primary/5"
+            >
+              <ShieldCheck className="size-3.5 mr-1" />
+              {selectedSchool.name}
+            </Badge>
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              {isSpanish ? "Documento Oficial DMPS" : "Official DMPS Document"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Zoom Controls (only for images) */}
+            {!isPdf && (
+              <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/80">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleZoomOut}
+                  className="size-7 rounded-lg text-muted-foreground hover:text-foreground"
+                  title="Alejar"
                 >
-                  <span>{isSpanish ? type.label_es : type.label_en}</span>
-                </button>
-              ))}
-            </div>
+                  <ZoomOut className="size-3.5" />
+                </Button>
+                <span className="text-[11px] font-bold px-1 text-muted-foreground min-w-9 text-center">
+                  {Math.round(zoomLevel * 100)}%
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleZoomIn}
+                  className="size-7 rounded-lg text-muted-foreground hover:text-foreground"
+                  title="Acercar"
+                >
+                  <ZoomIn className="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleResetZoom}
+                  className="size-7 rounded-lg text-muted-foreground hover:text-foreground"
+                  title="Restablecer tamaño"
+                >
+                  <RotateCcw className="size-3.5" />
+                </Button>
+              </div>
+            )}
+
+            {/* Fullscreen Modal trigger */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFullscreen(true)}
+              className="h-8 rounded-xl text-xs font-semibold gap-1.5"
+            >
+              <Maximize2 className="size-3.5" />
+              <span className="hidden sm:inline">
+                {isSpanish ? "Pantalla Completa" : "Fullscreen"}
+              </span>
+            </Button>
+
+            {/* Print Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              className="h-8 rounded-xl text-xs font-semibold gap-1.5"
+            >
+              <Printer className="size-3.5" />
+              <span className="hidden sm:inline">{isSpanish ? "Imprimir" : "Print"}</span>
+            </Button>
+
+            {/* Download */}
+            {activeUrl && (
+              <Button
+                asChild
+                variant="secondary"
+                size="sm"
+                className="h-8 rounded-xl text-xs font-bold gap-1.5"
+              >
+                <a href={activeUrl} download target="_blank" rel="noopener noreferrer">
+                  <Download className="size-3.5" />
+                  <span>{isSpanish ? "Descargar" : "Download"}</span>
+                </a>
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Loading state */}
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 w-full rounded-2xl bg-muted/40 animate-pulse" />
-            ))}
-          </div>
-        ) : filteredEvents.length === 0 ? (
-          /* Empty state when no events exist or match filter */
-          <div className="surface-card rounded-3xl border border-dashed border-border p-10 text-center max-w-2xl mx-auto space-y-4 bg-muted/5">
-            <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary">
-              <CalendarDays className="size-7" />
-            </div>
-            <h3 className="text-xl font-bold text-foreground">
-              {isSpanish
-                ? "No hay eventos programados en este momento"
-                : "No scheduled events at this time"}
-            </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
-              {isSpanish
-                ? "Los nuevos eventos escolares, conferencias y días sin clases publicados desde el menú de administración aparecerán organizados aquí."
-                : "Upcoming school events, parent conferences, and no-school days published by staff will appear here."}
-            </p>
-
-            <div className="pt-2 flex flex-wrap justify-center gap-3">
-              <Button asChild variant="outline" className="rounded-xl">
-                <Link to="/eventos">
-                  {isSpanish ? "Explorar Actividades Escolares" : "Browse School Activities"}
-                  <ArrowRight className="ml-2 size-4" />
-                </Link>
-              </Button>
-            </div>
-          </div>
-        ) : (
-          /* Events list grouped by month */
-          <div className="space-y-10">
-            {groupedEvents.map((group) => (
-              <div key={group.monthKey} className="space-y-4">
-                {/* Month title */}
-                <div className="flex items-center gap-3 border-b border-border pb-2.5">
-                  <span className="flex size-3 rounded-full bg-primary" />
-                  <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-                    {group.monthLabel}
-                  </h2>
-                  <span className="text-xs font-semibold text-muted-foreground rounded-full bg-muted px-2.5 py-0.5">
-                    {group.items.length}{" "}
-                    {group.items.length === 1
-                      ? isSpanish
-                        ? "evento"
-                        : "event"
-                      : isSpanish
-                        ? "eventos"
-                        : "events"}
-                  </span>
+        {/* Main Viewer Card */}
+        <Card className="rounded-3xl border-border bg-card overflow-hidden shadow-md">
+          <CardContent className="p-4 sm:p-6">
+            {isPdf ? (
+              /* PDF Viewer */
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-border bg-muted/20 overflow-hidden h-[700px] w-full">
+                  <iframe
+                    src={`${activeUrl}#toolbar=1&navpanes=0`}
+                    className="w-full h-full border-0"
+                    title="Calendario Escolar PDF"
+                  />
                 </div>
-
-                {/* Events in this month */}
-                <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.items.map((event) => {
-                    const loc = localizedEvent(event, lang, selectedSchool.id);
-                    const title = loc.title || event.title;
-                    const desc = loc.description || event.description;
-                    const rawEvent = event as Record<string, unknown>;
-                    const linkUrl =
-                      event.official_url ||
-                      (typeof rawEvent.link_url === "string" ? rawEvent.link_url : undefined);
-
-                    // Parse day number
-                    const dateParts = (event.start_date || "").split("-");
-                    const dayNumber = dateParts[2] ? parseInt(dateParts[2], 10) : "";
-
-                    return (
-                      <Card
-                        key={event.id}
-                        className="surface-card flex flex-col justify-between overflow-hidden rounded-2xl border border-border p-5 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lift"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              {/* Date block */}
-                              <div className="flex size-12 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10 text-primary">
-                                <span className="text-lg font-black leading-none">{dayNumber}</span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider">
-                                  {new Date(
-                                    parseInt(dateParts[0], 10),
-                                    parseInt(dateParts[1], 10) - 1,
-                                    parseInt(dateParts[2] || "1", 10),
-                                  ).toLocaleDateString(isSpanish ? "es-US" : "en-US", {
-                                    weekday: "short",
-                                  })}
-                                </span>
-                              </div>
-
-                              <div className="min-w-0">{getEventTypeBadge(event.event_type)}</div>
-                            </div>
-                          </div>
-
-                          {/* Event title */}
-                          <h3 className="text-base font-bold text-foreground leading-snug">
-                            {title}
-                          </h3>
-
-                          {/* Description */}
-                          {desc && (
-                            <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                              {desc}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Event footer: time, location & link */}
-                        <div className="mt-4 space-y-2 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="size-3.5 text-primary shrink-0" />
-                            <span>
-                              {event.all_day
-                                ? isSpanish
-                                  ? "Todo el día"
-                                  : "All day"
-                                : `${event.start_time || "08:00"} - ${event.end_time || "15:00"}`}
-                            </span>
-                          </div>
-
-                          {event.location && (
-                            <div className="flex items-center gap-1.5 truncate">
-                              <MapPin className="size-3.5 text-rose-500 shrink-0" />
-                              <span className="truncate">{event.location}</span>
-                            </div>
-                          )}
-
-                          {linkUrl && (
-                            <div className="pt-1">
-                              <a
-                                href={linkUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="inline-flex items-center gap-1 text-primary font-semibold hover:underline"
-                              >
-                                <span>{isSpanish ? "Más información" : "More information"}</span>
-                                <ExternalLink className="size-3" />
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      </Card>
-                    );
-                  })}
+                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                  <span>Documento PDF oficial del ciclo escolar</span>
+                  <a
+                    href={activeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary font-bold hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Abrir en nueva pestaña</span>
+                    <ExternalLink className="size-3" />
+                  </a>
                 </div>
               </div>
-            ))}
+            ) : (
+              /* Image Viewer with interactive Zoom */
+              <div className="flex flex-col items-center justify-center">
+                <div className="overflow-auto max-h-[85vh] w-full rounded-2xl border border-border/60 bg-slate-900/5 dark:bg-slate-950 p-2 sm:p-4 flex items-center justify-center">
+                  {!imageError && activeUrl ? (
+                    <img
+                      src={activeUrl}
+                      alt={`Calendario Escolar Oficial — ${selectedSchool.name}`}
+                      onError={() => setImageError(true)}
+                      style={{
+                        transform: `scale(${zoomLevel})`,
+                        transformOrigin: "center top",
+                        transition: "transform 0.15s ease-out",
+                      }}
+                      className="max-w-full h-auto rounded-xl shadow-lg cursor-zoom-in select-none"
+                      onClick={() => setIsFullscreen(true)}
+                    />
+                  ) : (
+                    <div className="py-20 text-center space-y-4">
+                      <div className="size-16 rounded-3xl bg-muted/50 text-muted-foreground flex items-center justify-center mx-auto">
+                        <FileText className="size-8" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-base font-bold text-foreground">
+                          {isSpanish
+                            ? "Calendario Escolar en Preparación"
+                            : "School Calendar Coming Soon"}
+                        </h3>
+                        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                          {isSpanish
+                            ? "El personal administrativo actualizará la imagen del calendario para esta escuela en breve."
+                            : "Staff will update the official calendar file for this school shortly."}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-muted-foreground mt-3 text-center">
+                  {isSpanish
+                    ? "Haz clic sobre la imagen para ampliar en pantalla completa o usa los controles de zoom."
+                    : "Click the image to expand full-screen or use zoom controls."}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+
+      {/* Fullscreen Image Lightbox Modal */}
+      <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+        <DialogContent className="max-w-[96vw] max-h-[96vh] p-4 bg-background/95 backdrop-blur-md rounded-3xl border-border flex flex-col">
+          <DialogHeader className="pb-2 border-b border-border/60 flex flex-row items-center justify-between">
+            <div>
+              <DialogTitle className="text-base font-bold">
+                {settings.title || `Calendario Escolar — ${selectedSchool.name}`}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                {isSpanish ? "Visualizador en alta resolución" : "High-resolution viewer"}
+              </DialogDescription>
+            </div>
+            {activeUrl && (
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="rounded-xl h-8 text-xs font-bold gap-1 mr-6"
+              >
+                <a href={activeUrl} download target="_blank" rel="noopener noreferrer">
+                  <Download className="size-3.5" />
+                  <span>Descargar</span>
+                </a>
+              </Button>
+            )}
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto flex items-center justify-center p-2">
+            {isPdf ? (
+              <iframe
+                src={activeUrl}
+                className="w-full h-[80vh] rounded-2xl border border-border"
+                title="Calendario PDF Fullscreen"
+              />
+            ) : (
+              <img
+                src={activeUrl}
+                alt="Calendario Escolar Fullscreen"
+                className="max-w-full max-h-[82vh] object-contain rounded-xl shadow-2xl"
+              />
+            )}
           </div>
-        )}
-      </section>
+        </DialogContent>
+      </Dialog>
     </PublicShell>
   );
 }

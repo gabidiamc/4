@@ -2,6 +2,7 @@ import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import type { LanguageCode } from "./i18n";
 import { pickTranslation } from "./content";
 import { readCache, writeCache } from "./sync";
+import { fetchTableFromStorage } from "./storage-engine";
 import { filterBySchool, filterBySchoolStrict } from "./school-scope";
 import { INITIAL_SCHOOLS } from "./school";
 import {
@@ -44,8 +45,22 @@ export async function fetchAppearance(): Promise<AppearanceRow | null> {
     }
   }
 
+  // 1. Fetch from persistent server storage (guarantees fresh data after reload)
+  try {
+    const fromStorage = await fetchTableFromStorage<AppearanceRow>("appearance_settings");
+    if (fromStorage && fromStorage.length > 0) {
+      writeCache("appearance_settings", fromStorage);
+      return fromStorage[0];
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. Fallback to cache if network request failed or while hydrating
   const cached = readCache<AppearanceRow>("appearance_settings");
-  return cached?.[0] ?? null;
+  if (cached?.[0]) return cached[0];
+
+  return null;
 }
 
 /* ---------------- schools ---------------- */

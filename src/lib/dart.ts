@@ -320,3 +320,220 @@ export function saveDartPlannerConfig(config: DartPlannerConfig): void {
     // ignore
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* DART Routes Data Model & Storage Helpers                           */
+/* ------------------------------------------------------------------ */
+
+export type DartRouteItem = {
+  id: string;
+  route_number: string;
+  name: string;
+  school_id: string;
+  description: string;
+  direction_outbound?: string | null;
+  direction_inbound?: string | null;
+  frequency?: string | null;
+  first_bus?: string | null;
+  last_bus?: string | null;
+  stops_count?: number | null;
+  official_url?: string | null;
+  is_active: boolean;
+  display_order?: number;
+};
+
+export const DEFAULT_DART_ROUTES: DartRouteItem[] = [
+  {
+    id: "dart-rt-7",
+    route_number: "7",
+    name: "Ruta 7 — Fort Des Moines / SW 9th",
+    school_id: "lincoln",
+    description: "Servicio directo a la entrada principal de Lincoln High School por SW 9th St.",
+    direction_outbound: "Hacia Southridge Mall vía SW 9th",
+    direction_inbound: "Hacia DART Central Station (Downtown)",
+    frequency: "Cada 20 min en horas pico escolares",
+    first_bus: "05:45 AM",
+    last_bus: "10:15 PM",
+    stops_count: 32,
+    official_url: "https://www.ridedart.com/routes/local/7-fort-des-moines",
+    is_active: true,
+    display_order: 10,
+  },
+  {
+    id: "dart-rt-8",
+    route_number: "8",
+    name: "Ruta 8 — Fleur Drive / South Campus",
+    school_id: "lincoln",
+    description: "Conexión sur para Lincoln High y Lincoln South Campus vía Fleur Dr y Bell Ave.",
+    direction_outbound: "Hacia Des Moines Airport / Southridge",
+    direction_inbound: "Hacia DART Central Station (Downtown)",
+    frequency: "Cada 30 min",
+    first_bus: "06:00 AM",
+    last_bus: "09:30 PM",
+    stops_count: 28,
+    official_url: "https://www.ridedart.com/routes/local/8-fleur-drive",
+    is_active: true,
+    display_order: 20,
+  },
+  {
+    id: "dart-rt-1",
+    route_number: "1",
+    name: "Ruta 1 — Fairgrounds / E University",
+    school_id: "east",
+    description:
+      "Servicio directo hacia East High School por E University Ave, a pasos de Williams Stadium.",
+    direction_outbound: "Hacia Iowa State Fairgrounds",
+    direction_inbound: "Hacia DART Central Station (Downtown)",
+    frequency: "Cada 20 min en horas pico escolares",
+    first_bus: "05:50 AM",
+    last_bus: "10:30 PM",
+    stops_count: 35,
+    official_url: "https://www.ridedart.com/routes/local/1-fairgrounds",
+    is_active: true,
+    display_order: 30,
+  },
+  {
+    id: "dart-rt-17",
+    route_number: "17",
+    name: "Ruta 17 — Hubbell Ave / East 14th",
+    school_id: "east",
+    description: "Conecta el noreste de Des Moines y E 14th St con las inmediaciones de East High.",
+    direction_outbound: "Hacia Altoona / Hubbell Ave",
+    direction_inbound: "Hacia DART Central Station (Downtown)",
+    frequency: "Cada 20 min en horas pico",
+    first_bus: "06:00 AM",
+    last_bus: "09:45 PM",
+    stops_count: 30,
+    official_url: "https://www.ridedart.com/routes/local/17-hubbell-ave",
+    is_active: true,
+    display_order: 40,
+  },
+  {
+    id: "dart-rt-6",
+    route_number: "6",
+    name: "Ruta 6 — Indianola Ave",
+    school_id: "lincoln",
+    description:
+      "Acceso al sureste y vecindarios del sur hacia Lincoln High School y DART Central Station.",
+    direction_outbound: "Hacia Southridge Mall vía Indianola Ave",
+    direction_inbound: "Hacia DART Central Station (Downtown)",
+    frequency: "Cada 30 min",
+    first_bus: "06:15 AM",
+    last_bus: "08:45 PM",
+    stops_count: 26,
+    official_url: "https://www.ridedart.com/routes/local/6-indianola-ave",
+    is_active: true,
+    display_order: 50,
+  },
+  {
+    id: "dart-rt-15",
+    route_number: "15",
+    name: "Ruta 15 — Park Ave",
+    school_id: "lincoln",
+    description: "Conexión este-oeste entre SW 9th, Bell Ave y el corredor de Park Ave.",
+    direction_outbound: "Hacia Valley Junction",
+    direction_inbound: "Hacia DART Central Station (Downtown)",
+    frequency: "Cada 35 min",
+    first_bus: "06:30 AM",
+    last_bus: "08:30 PM",
+    stops_count: 24,
+    official_url: "https://www.ridedart.com/routes/local/15-park-ave",
+    is_active: true,
+    display_order: 60,
+  },
+];
+
+export async function fetchDartRoutes(schoolId?: string): Promise<DartRouteItem[]> {
+  try {
+    const res = await fetch("/api/storage/dart_routes");
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.data) && json.data.length > 0) {
+        let items: DartRouteItem[] = json.data.map((r: Record<string, unknown>) => ({
+          id: String(r.id),
+          route_number: String(r.route_number ?? ""),
+          name: String(r.name ?? ""),
+          school_id: String(r.school_id ?? "all"),
+          description: String(r.description ?? ""),
+          direction_outbound: (r.direction_outbound as string | null) ?? null,
+          direction_inbound: (r.direction_inbound as string | null) ?? null,
+          frequency: (r.frequency as string | null) ?? null,
+          first_bus: (r.first_bus as string | null) ?? null,
+          last_bus: (r.last_bus as string | null) ?? null,
+          stops_count: r.stops_count ? Number(r.stops_count) : null,
+          official_url: (r.official_url as string | null) ?? null,
+          is_active: r.is_active !== false,
+          display_order: r.display_order ? Number(r.display_order) : 99,
+        }));
+
+        items.sort((a, b) => (a.display_order ?? 99) - (b.display_order ?? 99));
+
+        if (schoolId && schoolId !== "all") {
+          items = items.filter((r) => r.school_id === schoolId || r.school_id === "all");
+        }
+        return items;
+      }
+    }
+  } catch (err) {
+    console.warn("[DART] Error fetching dart_routes from api:", err);
+  }
+
+  // Fallback to DEFAULT_DART_ROUTES
+  if (schoolId && schoolId !== "all") {
+    return DEFAULT_DART_ROUTES.filter((r) => r.school_id === schoolId || r.school_id === "all");
+  }
+  return DEFAULT_DART_ROUTES;
+}
+
+/* ------------------------------------------------------------------ */
+/* DART Service Alerts & Notices                                      */
+/* ------------------------------------------------------------------ */
+
+export type DartAlertConfig = {
+  enabled: boolean;
+  type: "normal" | "delay" | "snow_route" | "detour";
+  title: string;
+  message: string;
+  updatedAt: string;
+};
+
+export const DEFAULT_DART_ALERT: DartAlertConfig = {
+  enabled: true,
+  type: "normal",
+  title: "Servicio Regular en Rutas Escolares",
+  message:
+    "Todas las rutas DART hacia Lincoln High School y East High School operan con horario normal. Recuerda llevar tu credencial estudiantil vigente.",
+  updatedAt: new Date().toLocaleDateString("es-US", { dateStyle: "medium" }),
+};
+
+const DART_ALERT_STORAGE_KEY = "dmps_dart_service_alert_v1";
+
+export function getDartAlertConfig(): DartAlertConfig {
+  if (typeof window === "undefined") {
+    return DEFAULT_DART_ALERT;
+  }
+  try {
+    const raw = localStorage.getItem(DART_ALERT_STORAGE_KEY);
+    if (!raw) return DEFAULT_DART_ALERT;
+    const parsed = JSON.parse(raw);
+    return {
+      enabled: parsed.enabled ?? DEFAULT_DART_ALERT.enabled,
+      type: parsed.type || DEFAULT_DART_ALERT.type,
+      title: parsed.title || DEFAULT_DART_ALERT.title,
+      message: parsed.message || DEFAULT_DART_ALERT.message,
+      updatedAt: parsed.updatedAt || DEFAULT_DART_ALERT.updatedAt,
+    };
+  } catch {
+    return DEFAULT_DART_ALERT;
+  }
+}
+
+export function saveDartAlertConfig(alert: DartAlertConfig): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(DART_ALERT_STORAGE_KEY, JSON.stringify(alert));
+    window.dispatchEvent(new Event("dart_alert_updated"));
+  } catch {
+    // ignore
+  }
+}

@@ -33,6 +33,9 @@ export const REALTIME_TABLES = [
   "activity_translations",
   "appearance_settings",
   "site_settings",
+  "social_media_channels",
+  "social_media_posts",
+  "public_menu_items",
   "update_requests",
   "broken_link_reports",
 ] as const;
@@ -43,10 +46,11 @@ import {
   readFromUnifiedStorage,
   writeToUnifiedStorage,
   saveToUnifiedStorage,
+  fetchTableFromStorage,
   initUnifiedStorageEngine,
 } from "./storage-engine";
 
-export { cacheKey, safeSetItem, saveToUnifiedStorage };
+export { cacheKey, safeSetItem, saveToUnifiedStorage, fetchTableFromStorage };
 
 export function readCache<T = any>(table: string): T[] | null {
   return readFromUnifiedStorage<T>(table);

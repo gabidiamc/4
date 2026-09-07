@@ -20,7 +20,7 @@ interface FirebaseContextType {
 
 const FirebaseContext = createContext<FirebaseContextType | null>(null);
 
-const ADMIN_EMAIL = "yeferm264@gmail.com";
+const ADMIN_EMAILS = ["yeferm264@gmail.com", "yefermartines9@gmail.com"];
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -36,7 +36,9 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const isAdmin = Boolean(user && user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+  const isAdmin = Boolean(
+    user && user.email && ADMIN_EMAILS.some((em) => em.toLowerCase() === user.email?.toLowerCase()),
+  );
 
   const handleSignIn = async () => {
     return await signInWithGoogle();

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Briefcase,
   Building2,
@@ -510,24 +510,55 @@ export const LINCOLN_JOB_LISTINGS: JobListing[] = [
   },
 ];
 
+export function getSavedJobListings(): (JobListing & { school_id?: string })[] {
+  if (typeof window === "undefined") return LINCOLN_JOB_LISTINGS;
+  try {
+    const raw = localStorage.getItem("dmps_job_listings");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return LINCOLN_JOB_LISTINGS;
+}
+
 export function JobBoardWidget({ className = "" }: { className?: string }) {
   const { lang } = useI18n();
   const { selectedSchool } = useSchool();
   const bi: "es" | "en" = lang === "es" ? "es" : "en";
   const schoolName = selectedSchool.name;
+  const [allJobs, setAllJobs] = useState<(JobListing & { school_id?: string })[]>(() =>
+    getSavedJobListings(),
+  );
   const [search, setSearch] = useState("");
   const [selectedAge, setSelectedAge] = useState<"all" | "14-15" | "16-17" | "18+">("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  const filteredJobs = LINCOLN_JOB_LISTINGS.filter((job) => {
+  useEffect(() => {
+    const update = () => setAllJobs(getSavedJobListings());
+    window.addEventListener("dmps-jobs-updated", update);
+    window.addEventListener("storage", update);
+    return () => {
+      window.removeEventListener("dmps-jobs-updated", update);
+      window.removeEventListener("storage", update);
+    };
+  }, []);
+
+  const filteredJobs = allJobs.filter((job) => {
+    // School filter
+    if (job.school_id && job.school_id !== "all" && job.school_id !== selectedSchool.id) {
+      return false;
+    }
     // Search filter
     const searchLower = search.toLowerCase();
     const matchesSearch =
       !search.trim() ||
       job.employer.toLowerCase().includes(searchLower) ||
-      job.positions[bi].toLowerCase().includes(searchLower) ||
-      job.details[bi].toLowerCase().includes(searchLower) ||
-      (job.location && job.location[bi].toLowerCase().includes(searchLower));
+      (job.positions[bi] || "").toLowerCase().includes(searchLower) ||
+      (job.details[bi] || "").toLowerCase().includes(searchLower) ||
+      (job.location && (job.location[bi] || "").toLowerCase().includes(searchLower));
 
     // Age filter
     let matchesAge = true;

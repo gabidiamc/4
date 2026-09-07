@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
   Bell,
+  Briefcase,
   Bus,
   CalendarClock,
   CalendarDays,
@@ -36,6 +37,7 @@ import {
   ExternalLink,
   ListTodo,
   Check,
+  Share2,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -114,7 +116,10 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/admin/recursos", label: "Recursos y Enlaces", icon: Globe },
       { to: "/admin/contactos", label: "Directorio y Contacto", icon: Phone },
       { to: "/admin/servicios", label: "Servicios y Portales", icon: Link2 },
+      { to: "/admin/empleos", label: "Bolsa de Trabajo", icon: Briefcase, badge: "Público" },
+      { to: "/admin/faq", label: "Preguntas Frecuentes", icon: HelpCircle, badge: "Público" },
       { to: "/admin/escuelas", label: "Escuelas y Sedes", icon: School },
+      { to: "/admin/redes-sociales", label: "Redes Sociales", icon: Share2, badge: "Nuevo" },
       { to: "/admin/menu", label: "Estructura del Menú", icon: Menu, badge: "Editor" },
     ],
   },
@@ -144,7 +149,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Sistema y Marca",
     items: [
       { to: "/admin/usuarios", label: "Usuarios y Permisos", icon: Users },
-      { to: "/admin/apariencia", label: "Logotipos y Marca", icon: ImageIcon },
+      { to: "/admin/apariencia", label: "Ícono Principal y Marca", icon: ImageIcon },
       { to: "/admin/emergentes", label: "Anuncios Flotantes", icon: Bell },
       { to: "/admin/reinicio", label: "Reinicio de Contenido", icon: ShieldAlert },
     ],
